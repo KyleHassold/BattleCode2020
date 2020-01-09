@@ -1,5 +1,6 @@
 package strat1Begin;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
 
 import battlecode.common.*;
@@ -11,8 +12,43 @@ public strictfp class RobotPlayer {
 	static RobotType[] spawnedByMiner = {RobotType.REFINERY, RobotType.VAPORATOR, RobotType.DESIGN_SCHOOL,
 			RobotType.FULFILLMENT_CENTER, RobotType.NET_GUN}; // Useless?
 	static HashMap<MapLocation, int[]> sensed = new HashMap<MapLocation, int[]>();
-
-	static int turnCount;
+	static int[][] MinerDiagNewSense = {{4,3},{4,2},{4,1},{4,0},{4,-1},{4,-2},{4,-3},{2,5},{1,5},{0,5},{-1,5},{-2,5},{-3,5},{3,3},{3,4},{2,4}};
+	
+	/*
+	 * New Sense Diagonal
+	 * (-3, 5)
+	 * (2, 5)
+	 * (5, 2)
+	 * (4, 4)
+	 * (5, -2)
+	 * (0, 5)
+	 * (5, 1)
+	 * (4, 3)
+	 * (-2, 5)
+	 * (3, 5)
+	 * (5, -3)
+	 * (1, 5)
+	 * (5, 0)
+	 * (3, 4)
+	 * (5, 3)
+	 * (-1, 5)
+	 * (5, -1)
+	 */
+	
+	/*
+	 * New Sense Horizontal (switch x and y for virticle)
+	 * (5, -2)
+	 * (3, -5)
+	 * (5, 3)
+	 * (4, -4)
+	 * (5, 1)
+	 * (5, -1)
+	 * (3, 5)
+	 * (5, -3)
+	 * (5, 2)
+	 * (4, 4)
+	 * (5, 0)
+	 */
 
 	/**
 	 * run() is the method that is called when a robot is instantiated in the Battlecode world.
@@ -21,7 +57,6 @@ public strictfp class RobotPlayer {
 
 	public static void run(RobotController rc) throws GameActionException {
 		RobotPlayer.rc = rc;
-		turnCount = 0;
 
 		///// Reorder directions based on starting location /////
 		MapLocation startLoc = rc.getLocation();
@@ -59,17 +94,47 @@ public strictfp class RobotPlayer {
 
 	static void runHQ() throws GameActionException {
 		int curr = 0;
-		int[] order = {0,1,7,2,6,3,5,4};
+		int[] order = {0,1,6,7,2,5,3,4};
+		System.out.println("Start");
+		sensed.putAll(senseInRange(rc.getLocation(), RobotType.HQ.sensorRadiusSquared));
+		System.out.println(sensed.size());
+		ArrayList<MapLocation> soup = new ArrayList<MapLocation>();
+		for(MapLocation loc : sensed.keySet()) {
+			if(sensed.get(loc)[2] > 0) {
+				soup.add(loc);
+			}
+		}
+		
 		while(curr < 8) {
+			HashMap<MapLocation, int[]> newSensed = getComms();
+			for(MapLocation loc : newSensed.keySet()) {
+				if(newSensed.get(loc)[2] > 0) {
+					soup.add(loc);
+				}
+			}
+			sensed.putAll(newSensed);
+			
 			if (rc.getTeamSoup() >= 70) {
-				rc.buildRobot(RobotType.MINER, directions[order[curr]]); //Check if can build
+				if(curr % 2 == 1 && !soup.isEmpty()) {
+					Direction dir = getDirection(rc.getLocation(), soup.get(curr/2));
+					while(!rc.canBuildRobot(RobotType.MINER, dir)) {
+						Clock.yield();
+					}
+					rc.buildRobot(RobotType.MINER, dir);
+				} else {
+					while(!rc.canBuildRobot(RobotType.MINER, directions[order[curr]])) {
+						Clock.yield();
+					}
+					rc.buildRobot(RobotType.MINER, directions[order[curr]]); //Check if can build
+				}
 				curr++;
 			}
-
+			
 			Clock.yield();
 		}
 
 		while(true) {
+			sensed.putAll(getComms());
 			// Check for enemy drones
 			// Attack most dangerous drones
 			///// Danger based on nearness to allies
@@ -79,6 +144,39 @@ public strictfp class RobotPlayer {
 
 			Clock.yield();
 		}
+	}
+
+	private static Direction getDirection(MapLocation start, MapLocation end) {
+		double angle = (Math.atan2(end.y - start.y, end.x - start.x))/Math.PI + 1;
+		if(angle > 15.0/8 || angle <= 1.0/8) {
+			return Direction.WEST;
+		} else if(angle > 13.0/8) {
+			return Direction.NORTHWEST;
+		} else if(angle > 11.0/8) {
+			return Direction.NORTH;
+		} else if(angle > 9.0/8) {
+			return Direction.NORTHEAST;
+		} else if(angle > 7.0/8) {
+			return Direction.EAST;
+		} else if(angle > 5.0/8) {
+			return Direction.SOUTHEAST;
+		} else if(angle > 3.0/8) {
+			return Direction.SOUTH;
+		} else {
+			return Direction.SOUTHWEST;
+		}
+	}
+
+	private static HashMap<MapLocation, int[]> getComms() throws GameActionException {
+		Transaction[] comms = rc.getBlock(rc.getRoundNum()-1);
+		HashMap<MapLocation, int[]> results = new HashMap<MapLocation, int[]>();
+		for(Transaction t : comms) {
+			int[] mess = t.getMessage();
+			if(mess[6] == 21) {
+				results.put(new MapLocation(mess[0], mess[1]), Arrays.copyOfRange(mess, 2, 4));
+			}
+		}
+		return results;
 	}
 
 	static void runMiner() throws GameActionException {
@@ -94,20 +192,19 @@ public strictfp class RobotPlayer {
 			}
 			
 			HashMap<MapLocation, int[]> newSensed = senseInRange(rc.getLocation(), RobotType.MINER.sensorRadiusSquared);
-			//MapLocation[] inRange = getInRange(rc.getLocation(), RobotType.MINER.sensorRadiusSquared);
-			//HashMap<MapLocation, Integer> soupFound = senseAllSoup(inRange);
+			System.out.println(RobotType.MINER.sensorRadiusSquared);
+			for(MapLocation loc : newSensed.keySet()) {
+				System.out.println("(" + (loc.x - rc.getLocation().x) + ", " + (loc.y - rc.getLocation().y) + ")");
+			}
 			System.out.println(newSensed.keySet().size());
 			if(!newSensed.isEmpty()) {
-				int[] message = new int[newSensed.keySet().size() * 3];
-				int count = 0;
+				ArrayList<Integer> message = new ArrayList<Integer>();
 				for(MapLocation soupLoc : newSensed.keySet()) {
-					message[count] = soupLoc.x; // Change to prevent enemy getting data
-					message[count+1] = soupLoc.y;
-					message[count+2] = newSensed.get(soupLoc)[2];
-					count += 3;
-				}
-				if(rc.canSubmitTransaction(message, 1)) {
-					rc.submitTransaction(message, 1);
+					if(newSensed.get(soupLoc)[2] > 0) {
+						message.add(soupLoc.x); // Change to prevent enemy getting data
+						message.add(soupLoc.y);
+						message.add(newSensed.get(soupLoc)[2]);
+					}
 				}
 				sensed.putAll(newSensed);
 			}
@@ -119,8 +216,9 @@ public strictfp class RobotPlayer {
 	private static HashMap<MapLocation, int[]> senseInRange(MapLocation loc, int rSq) throws GameActionException {
 		HashMap<MapLocation, int[]> results = new HashMap<MapLocation, int[]>();
 		MapLocation curr;
-		for(int y = loc.y - (int) (Math.pow(rSq, 0.5)); y < loc.y + (int) (Math.pow(rSq, 0.5)); y++) {
-			for(int x = loc.x - (int) (Math.pow(rSq - Math.pow(y - loc.y, 2), 0.5)); x < loc.x + (int) ((Math.pow(rSq - Math.pow(y - loc.y, 2), 0.5))); x++) {
+		for(int y = Math.max(loc.y - (int) (Math.pow(rSq, 0.5)), 0); y <= Math.min(loc.y + (int) (Math.pow(rSq, 0.5)), rc.getMapHeight()); y++) {
+			System.out.println((int) (Math.pow(rSq - Math.pow(y - loc.y, 2), 0.5)));
+			for(int x = Math.max(loc.x - (int) (Math.pow(rSq - Math.pow(y - loc.y, 2), 0.5)), 0); x <= Math.min(loc.x + (int) ((Math.pow(rSq - Math.pow(y - loc.y, 2), 0.5))), rc.getMapWidth()); x++) {
 				curr = new MapLocation(x, y);
 				if(!sensed.containsKey(curr)) {
 					results.put(curr, new int[] {rc.senseElevation(curr), rc.senseFlooding(curr) ? 1 : 0, rc.senseSoup(curr)});
@@ -128,31 +226,6 @@ public strictfp class RobotPlayer {
 			}
 		}
 		return results;
-	}
-
-	private static HashMap<MapLocation, Integer> senseAllSoup(MapLocation[] inRange) throws GameActionException {
-		HashMap<MapLocation, Integer> soup = new HashMap<MapLocation, Integer>();
-		for(MapLocation loc : inRange) {
-			int soupAmount = rc.senseSoup(loc);
-			if(soupAmount != 0) {
-				soup.put(loc, soupAmount);
-			}
-		}
-		return soup;
-	}
-
-	private static MapLocation[] getInRange(MapLocation loc, int rSq) {
-		ArrayList<MapLocation> results = new ArrayList<MapLocation>();
-
-		for(int y = loc.y - (int) (Math.pow(rSq, 0.5)); y < loc.y + (int) (Math.pow(rSq, 0.5)); y++) { // Get circle from double for loop
-			for(int x = loc.x - (int) (Math.pow(rSq, 0.5)); x < loc.x + (int) (Math.pow(rSq, 0.5)); x++) {
-				if(rSq >= Math.pow(x-loc.x, 2) + Math.pow(y-loc.y, 2)) {
-					results.add(new MapLocation(x, y));
-				}
-			}
-		}
-
-		return results.toArray(new MapLocation[results.size()]);
 	}
 
 	private static boolean findAdjacentRobot(RobotType hq, Direction dir, MapLocation currLoc) {
@@ -303,7 +376,7 @@ public strictfp class RobotPlayer {
 
 
 	static void tryBlockchain() throws GameActionException {
-		if (turnCount < 3) {
+		if (true) {
 			int[] message = new int[10];
 			for (int i = 0; i < 10; i++) {
 				message[i] = 123;
