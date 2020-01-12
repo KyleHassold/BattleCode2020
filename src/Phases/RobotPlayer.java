@@ -1,34 +1,57 @@
 package Phases;
 
+import java.util.ArrayList;
 import java.util.HashMap;
-
 import battlecode.common.*;
 
+//-------------------------------------------------- INFO --------------------------------------
+/*
+BLOCKCHAIN CODES:
+  117290 = Soup
+  117291 = HQ Location
+  117292 = Mine Location
+  117293 = Design School Location
+  117294 = Vaporator Location
+BLOCKCHAIN PROTOCOL:
+  for soup:
+      [code, x, y, amountOfSoup, -1, -1, -1]
+  for other stuff:
+      [code, x, y, -1, -1, -1, -1]
+MAP INT[]:
+	Water, Dirt, Soup, Base
+	Building:
+		Positive: Friendly
+		Negative: Enemy
+		HQ: 1
+		Refinery: 2
+		Net Gun: 3
+		Vaporator: 4
+		Design School: 5
+		Fulfillment Center: 6
+*/
+
 public strictfp class RobotPlayer {
+	
+	// --------------------------------------- PRIVATE DATA ---------------------------------------
 	static RobotController rc;
 
-	static Direction[] directions = {Direction.WEST, Direction.NORTHWEST, Direction.NORTH, Direction.NORTHEAST, Direction.EAST, Direction.SOUTHEAST, Direction.SOUTH, Direction.SOUTHWEST};
-	static int dirOffset = 0;
-	
+	static ArrayList<Direction> directions = new ArrayList<Direction>();
 	static HashMap<MapLocation, int[]> map = new HashMap<MapLocation, int[]>();
-	static boolean enemyBaseFound = false;
+	static HashMap<MapLocation, Integer> soup = new HashMap<MapLocation, Integer>();
+	static MapLocation[] HQs = new MapLocation[2];
+	static Direction prevSpot;
 
 	public static void run(RobotController rc) throws GameActionException {
 		RobotPlayer.rc = rc;
-
-		///// Reorder directions based on starting location /////
-		MapLocation startLoc = rc.getLocation();
-		double angle = Math.atan2(rc.getMapHeight()/2 - startLoc.y, rc.getMapWidth()/2 - startLoc.x) + Math.PI;
-
-		if(angle <= Math.PI * 15/8 && angle > Math.PI * 1/8) {
-			dirOffset = 8 - (int) (4*angle/Math.PI + 0.5);
-			Direction[] temp = new Direction[8];
-			for(int i = 0; i < 8; i++) {
-				temp[i] = directions[(i+dirOffset)%8];
-			}
-			directions = temp;
-		}
-
+		directions.add(Direction.NORTH);
+		directions.add(Direction.NORTHEAST);
+		directions.add(Direction.EAST);
+		directions.add(Direction.SOUTHEAST);
+		directions.add(Direction.SOUTH);
+		directions.add(Direction.SOUTHWEST);
+		directions.add(Direction.WEST);
+		directions.add(Direction.NORTHWEST);
+		
 		///// Call run function for specific entity type /////
 		System.out.println("I'm a " + rc.getType() + " and I just got created!");
 		try {
@@ -55,9 +78,7 @@ public strictfp class RobotPlayer {
 		MapLocation senseStopLoc = runHQInit();
 
 		while(true) {
-			if(rc.canBuildRobot(RobotType.MINER, directions[0])) {
-				rc.buildRobot(RobotType.MINER, directions[0]);
-			}
+			buildRobot(RobotType.MINER, directions.get(0));
 
 			///// Use remaining ByteCode to sense surroundings /////
 			if(senseStopLoc != new MapLocation(-1, -1)) { // If the sensing has not finished, continue where left off
@@ -70,69 +91,56 @@ public strictfp class RobotPlayer {
 
 	private static MapLocation runHQInit() throws GameActionException {
 		MapLocation senseStopLoc = new MapLocation(0,0);
-		int hor = 0;
+		HQs[0] = rc.getLocation();
 		
-		///// Spawn in initial miners /////
-		if(directions[0] == Direction.WEST || directions[0] == Direction.NORTH || directions[0] == Direction.EAST || directions[0] == Direction.SOUTH) {
-			hor = 1;
+		MapLocation enemyHQGuess = new MapLocation(rc.getMapWidth() - 1 - HQs[0].x, HQs[0].y);
+		Direction spawnDir = getDirection(HQs[0], enemyHQGuess);
+		buildRobot(RobotType.MINER, spawnDir);
+		
+		map.putAll(senseInRange(senseStopLoc));
+		
+		Clock.yield();
+		
+		enemyHQGuess = new MapLocation(HQs[0].x, rc.getMapHeight() - 1 - HQs[0].y);
+		spawnDir = getDirection(HQs[0], enemyHQGuess);
+		buildRobot(RobotType.MINER, spawnDir);
+		
+		if(senseStopLoc != new MapLocation(-1, -1)) { // If the sensing has not finished, continue where left off
+			map.putAll(senseInRange(senseStopLoc));
 		}
 		
-		if(rc.canBuildRobot(RobotType.MINER, directions[1 + hor])) {
-			rc.buildRobot(RobotType.MINER, directions[1 + hor]);
-			///// Use remaining ByteCode to sense surroundings /////
+		Clock.yield();
+		
+		enemyHQGuess = new MapLocation(rc.getMapWidth() - 1 - HQs[0].x, rc.getMapHeight() - 1 - HQs[0].y);
+		spawnDir = getDirection(HQs[0], enemyHQGuess);
+		while(!buildRobot(RobotType.MINER, spawnDir)) {
 			if(senseStopLoc != new MapLocation(-1, -1)) { // If the sensing has not finished, continue where left off
 				map.putAll(senseInRange(senseStopLoc));
 			}
+			
 			Clock.yield();
 		}
-		
-		if(rc.canBuildRobot(RobotType.MINER, directions[7 - hor])) {
-			rc.buildRobot(RobotType.MINER, directions[7 - hor]);
-			///// Use remaining ByteCode to sense surroundings /////
-			if(senseStopLoc != new MapLocation(-1, -1)) { // If the sensing has not finished, continue where left off
-				map.putAll(senseInRange(senseStopLoc));
-			}
-			Clock.yield();
-		}
-		
-		while(!rc.canBuildRobot(RobotType.MINER, directions[0])) {
-			///// Use remaining ByteCode to sense surroundings /////
-			if(senseStopLoc != new MapLocation(-1, -1)) { // If the sensing has not finished, continue where left off
-				map.putAll(senseInRange(senseStopLoc));
-			}
-			Clock.yield();
-		}
-		rc.buildRobot(RobotType.MINER, directions[0]);
 		
 		return senseStopLoc;
 	}
 
 	private static void runMiner() throws GameActionException {
-		Direction moveDir = Direction.CENTER;
-		for(int i = 0; i < 8; i++) {
-			if(findAdjacentRobot(RobotType.HQ, directions[i])) {
-				moveDir = directions[(i + 4) % 8];
-			}
-		}
+		HQs[0] = findAdjacentRobot(RobotType.HQ);
 		
-		if(rc.getRobotCount() <= 4) { // The first 3 miners are the Search Miner sub-class
-			int x = rc.getLocation().x - moveDir.dx;
-			int y = rc.getLocation().y - moveDir.dy;
-			if(moveDir.dx != 0) {
-				x = rc.getMapWidth() - 1 - x;
-			}
-			if(moveDir.dy != 0) {
-				y = rc.getMapHeight() - 1 - y;
-			}
-			MapLocation target = new MapLocation(x, y);
+		if(rc.getRobotCount() == 2) { // The first 3 miners are the Search Miner sub-class
+			MapLocation target = new MapLocation(rc.getMapWidth() - 1 - HQs[0].x, HQs[0].y);
 			runSearchMiner(target);
-			
-			Clock.yield();
+		} else if(rc.getRobotCount() == 3) { // The first 3 miners are the Search Miner sub-class
+			MapLocation target = new MapLocation(HQs[0].x, rc.getMapHeight() - 1 - HQs[0].y);
+			runSearchMiner(target);
+		} else if(rc.getRobotCount() == 4) { // The first 3 miners are the Search Miner sub-class
+			MapLocation target = new MapLocation(rc.getMapWidth() - 1 - HQs[0].x, rc.getMapHeight() - 1 - HQs[0].y);
+			runSearchMiner(target);
 		}
-		runSoupMiner(moveDir); // If a Search Miner finishes their job, they return and get brought to the Soup Miner sub-class
+		Clock.yield();
+		
+		runSoupMiner(); // If a Search Miner finishes their job, they return and get brought to the Soup Miner sub-class
 	}
-
-
 
 	private static void runSearchMiner(MapLocation target) throws GameActionException {
 		System.out.println("I'm a Search Miner!");
@@ -140,7 +148,7 @@ public strictfp class RobotPlayer {
 		while(true) {
 			///// Check Transactions for base found /////
 			checkTransactions();
-			if(enemyBaseFound) {
+			if(HQs[1] != null) {
 				runBuilderMiner();
 				break;
 			}
@@ -148,13 +156,18 @@ public strictfp class RobotPlayer {
 			///// Move based on going along wall if colliding with obstacle toward center preferably
 			moveCloser(target);
 			
-			MapLocation enemyHQ = senseEnemyHQ();
-			if(enemyHQ != null) {
-				int[] message = new int[] {21, enemyHQ.x, enemyHQ.y};
-				if(rc.canSubmitTransaction(message, 1)) {
-					rc.submitTransaction(message, 1);
-					break;
+			if(rc.canSenseLocation(target)) {
+				RobotInfo enemyHQ = rc.senseRobotAtLocation(target);
+				if(enemyHQ == null || enemyHQ.team != rc.getTeam().opponent() || enemyHQ.type != RobotType.HQ) {
+					runBuilderMiner();
+				} else {
+					int[] message = new int[] {21, enemyHQ.location.x, enemyHQ.location.y};
+					if(rc.canSubmitTransaction(message, 1)) {
+						rc.submitTransaction(message, 1);
+					}
 				}
+				
+				break;
 			}
 			
 			Clock.yield();
@@ -170,7 +183,7 @@ public strictfp class RobotPlayer {
 		}
 	}
 
-	private static void runSoupMiner(Direction moveDir) {
+	private static void runSoupMiner() {
 		System.out.println("I'm a Soup Miner!");
 		while(true) {
 
@@ -212,7 +225,18 @@ public strictfp class RobotPlayer {
 		// TODO Auto-generated method stub
 
 	}
-
+	
+	//------------------------------------- Aux Functions -------------------------------------------------
+	
+	
+	private static boolean buildRobot(RobotType rType, Direction dir) throws GameActionException {
+		if(rc.canBuildRobot(rType, dir)) {
+			rc.buildRobot(rType, dir);
+			return true;
+		}
+		return false;
+		
+	}
 
 	private static HashMap<MapLocation, int[]> senseInRange(MapLocation stopLoc) throws GameActionException {
 		MapLocation loc = rc.getLocation();
@@ -238,17 +262,15 @@ public strictfp class RobotPlayer {
 		return results;
 	}
 
-	private static boolean findAdjacentRobot(RobotType type, Direction dir) {
+	private static MapLocation findAdjacentRobot(RobotType type) throws GameActionException {
 		MapLocation currLoc = rc.getLocation();
-		try {
+		for(Direction dir : directions) {
 			RobotInfo robo = rc.senseRobotAtLocation(new MapLocation(currLoc.x + dir.dx, currLoc.y + dir.dy));
 			if(robo != null && robo.getType() == type) {
-				return true;
+				return robo.location;
 			}
-		} catch (GameActionException e) {
-			e.printStackTrace();
 		}
-		return false;
+		return null;
 	}
 
 	private static boolean moveCloser(MapLocation target) throws GameActionException {
@@ -257,12 +279,14 @@ public strictfp class RobotPlayer {
 		}
 		
 		int[] baseMove = {0,1,2,-1,-2,3,-3,4};
-		int dir = getDirection(rc.getLocation(), target);
-		System.out.println(directions[dir]);
+		int dir = directions.indexOf(getDirection(rc.getLocation(), target));
 		
+		Direction moveDir;
 		for(int dDir : baseMove) {
-			if(rc.canMove(directions[(dir + dDir + 8) % 8]) && avoidWalls(directions[(dir + dDir + 8) % 8])) {
-				rc.move(directions[(dir + dDir + 8) % 8]);
+			moveDir = directions.get((dir + dDir + 8) % 8);
+			if(prevSpot != moveDir && rc.canMove(moveDir) && avoidWalls(moveDir)) {
+				rc.move(moveDir);
+				prevSpot = directions.get((dir + dDir + 4) % 8);
 				return true;
 			}
 		}
@@ -279,36 +303,26 @@ public strictfp class RobotPlayer {
 		return true;
 	}
 	
-	private static int getDirection(MapLocation start, MapLocation end) {
+	private static Direction getDirection(MapLocation start, MapLocation end) {
 		double angle = (Math.atan2(end.y - start.y, end.x - start.x))/Math.PI + 1;
 		
 		if(angle > 15.0/8 || angle <= 1.0/8) {
-			return (0 + dirOffset) % 8;
+			return Direction.WEST;
 		} else if(angle > 13.0/8) {
-			return (1 + dirOffset) % 8;
+			return Direction.NORTHWEST;
 		} else if(angle > 11.0/8) {
-			return (2 + dirOffset) % 8;
+			return Direction.NORTH;
 		} else if(angle > 9.0/8) {
-			return (3 + dirOffset) % 8;
+			return Direction.NORTHEAST;
 		} else if(angle > 7.0/8) {
-			return (4 + dirOffset) % 8;
+			return Direction.EAST;
 		} else if(angle > 5.0/8) {
-			return (5 + dirOffset) % 8;
+			return Direction.SOUTHEAST;
 		} else if(angle > 3.0/8) {
-			return (6 + dirOffset) % 8;
+			return Direction.SOUTH;
 		} else {
-			return (7 + dirOffset) % 8;
+			return Direction.SOUTHWEST;
 		}
-	}
-
-	private static MapLocation senseEnemyHQ() {
-		RobotInfo[] sensed = rc.senseNearbyRobots(RobotType.MINER.sensorRadiusSquared, rc.getTeam().opponent());
-		for(RobotInfo robo : sensed) {
-			if(robo.type == RobotType.HQ) {
-				return robo.location;
-			}
-		}
-		return null;
 	}
 	
 	private static void checkTransactions() throws GameActionException {
@@ -320,7 +334,7 @@ public strictfp class RobotPlayer {
 
 	private static void analyzeTransaction(Transaction t) {
 		if(t.getMessage()[0] == 21) {
-			enemyBaseFound = true;
+			HQs[1] = new MapLocation(t.getMessage()[1],  t.getMessage()[2]);
 			map.put(new MapLocation(t.getMessage()[1],  t.getMessage()[2]), new int[] {0,0,0,-1});
 		}
 	}
