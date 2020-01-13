@@ -44,7 +44,9 @@ public strictfp class RobotPlayer {
 	static HashMap<MapLocation, Integer> soup = new HashMap<MapLocation, Integer>();
 	static MapLocation[] HQs = new MapLocation[2];
 	static MapLocation[] refs = new MapLocation[2];
+	static MapLocation DesSch;
 	static Direction prevSpot;
+	static int phase = 1;
 
 	public static void run(RobotController rc) throws GameActionException {
 		RobotPlayer.rc = rc;
@@ -242,18 +244,35 @@ public strictfp class RobotPlayer {
 			
 			if(rc.getTeamSoup() >= 200 & buildRobot(RobotType.REFINERY, Direction.NORTH)) {
 				MapLocation loc = new MapLocation(rc.getLocation().x, rc.getLocation().y + 1);
-				if(refs[0] == null) {
-					refs[0] = loc;
-				} else {
-					refs[1] = loc;
-				}
 				map.put(loc, new int[] {0, map.get(loc)[1], map.get(loc)[2], 2});
 				if(rc.canSubmitTransaction(new int[] {22, loc.x, loc.y}, 1)) {
 					rc.submitTransaction(new int[] {22, loc.x, loc.y}, 1);
 				}
+				if(refs[0] == null) {
+					refs[0] = loc;
+				} else {
+					refs[1] = loc;
+					runDesignMiner();
+				}
 				break;
 			}
 			Clock.yield();
+		}
+	}
+
+	private static void runDesignMiner() throws GameActionException {
+		Direction dir = getDirection(new MapLocation(rc.getMapWidth()/2, rc.getMapHeight()/2), HQs[0]);
+		MapLocation target = new MapLocation(HQs[0].x + dir.dx * 2, HQs[0].y + dir.dy * 2);
+		while(!rc.getLocation().equals(target)) {
+			moveCloser(target, false);
+			Clock.yield();
+		}
+		while(!rc.canBuildRobot(RobotType.DESIGN_SCHOOL, dir)) {
+			Clock.yield();
+		}
+		rc.buildRobot(RobotType.DESIGN_SCHOOL, dir);
+		if(rc.canSubmitTransaction(new int[] {117293, target.x + dir.dx, target.y + dir.dy}, 1)) {
+			rc.submitTransaction(new int[] {117293, target.x + dir.dx, target.y + dir.dy}, 1);
 		}
 	}
 
@@ -338,28 +357,130 @@ public strictfp class RobotPlayer {
 
 	}
 
-	private static void runDesignSchool() {
-		// TODO Auto-generated method stub
+	private static void runDesignSchool() throws GameActionException {
+		int count = 0;
+		MapLocation loc = rc.getLocation();
+		Direction dir = getDirection(new MapLocation(rc.getMapWidth()/2, rc.getMapHeight()/2), loc);
+		HQs[0] = new MapLocation(loc.x - 3 * dir.dx, loc.y - 3 * dir.dy);
+		
+		
+		// Spawn in 5 Landscapers for phase 2
+		while(count < 28) {
+			checkTransactions();
+			if(rc.canBuildRobot(RobotType.LANDSCAPER, dir)) {
+				rc.buildRobot(RobotType.LANDSCAPER, dir);
+				count++;
+			}
+			Clock.yield();
+		}
+		
+		// Wait for phase 3
+		while(phase < 3) {
+			checkTransactions();
+			Clock.yield();
+		}
+		
+		while(count < 33) {
+			checkTransactions();
+			if(rc.canBuildRobot(RobotType.LANDSCAPER, dir)) {
+				rc.buildRobot(RobotType.LANDSCAPER, dir);
+				count++;
+			}
+			Clock.yield();
+		}
+		while(true) {
+			Clock.yield();
+		}
+	}
+
+	private static void runFulfillmentCenter() throws GameActionException {
+		int count = 0;
+		MapLocation loc = rc.getLocation();
+		Direction dir = getDirection(loc, new MapLocation(rc.getMapWidth()/2, rc.getMapHeight()/2));
+		HQs[0] = new MapLocation(loc.x + 3 * dir.dx, loc.y + 3 * dir.dy);
+		
+		// Spawn in 4 Drones for phase 2
+		while(count < 4) {
+			checkTransactions();
+			if(buildRobot(RobotType.DELIVERY_DRONE, dir)) {
+				count++;
+			}
+			Clock.yield();
+		}
 
 	}
 
-	private static void runFulfillmentCenter() {
-		// TODO Auto-generated method stub
+	private static void runLandscaper() throws GameActionException {
+		MapLocation loc = rc.getLocation();
+		Direction dir = getDirection(new MapLocation(rc.getMapWidth()/2, rc.getMapHeight()/2), loc);
+		HQs[0] = new MapLocation(loc.x - 4 * dir.dx, loc.y - 4 * dir.dy);
+		// Phase 3 landscaper locations
+		MapLocation[] wallBuilding = new MapLocation[] {
+				new MapLocation(HQs[0].x - 1, HQs[0].y - 2), new MapLocation(HQs[0].x - 2, HQs[0].y - 2),
+				new MapLocation(HQs[0].x - 3, HQs[0].y - 2), new MapLocation(HQs[0].x - 3, HQs[0].y - 1),
+				new MapLocation(HQs[0].x - 3, HQs[0].y - 0), new MapLocation(HQs[0].x - 3, HQs[0].y + 1),
+				new MapLocation(HQs[0].x - 3, HQs[0].y + 2), new MapLocation(HQs[0].x - 2, HQs[0].y + 2),
+				new MapLocation(HQs[0].x - 1, HQs[0].y + 2), new MapLocation(HQs[0].x - 0, HQs[0].y + 2),
+				new MapLocation(HQs[0].x + 1, HQs[0].y + 2), new MapLocation(HQs[0].x + 2, HQs[0].y + 2),
+				new MapLocation(HQs[0].x + 2, HQs[0].y + 1), new MapLocation(HQs[0].x + 2, HQs[0].y + 0),
+				new MapLocation(HQs[0].x + 2, HQs[0].y - 1), new MapLocation(HQs[0].x + 2, HQs[0].y - 2),
+				new MapLocation(HQs[0].x + 1, HQs[0].y - 2), new MapLocation(HQs[0].x - 2, HQs[0].y + 1),
+				new MapLocation(HQs[0].x - 1, HQs[0].y + 1), new MapLocation(HQs[0].x - 0, HQs[0].y + 1),
+				new MapLocation(HQs[0].x + 1, HQs[0].y + 1), new MapLocation(HQs[0].x + 1, HQs[0].y + 0),
+				new MapLocation(HQs[0].x - 2, HQs[0].y + 0), new MapLocation(HQs[0].x - 2, HQs[0].y - 1),
+				new MapLocation(HQs[0].x - 1, HQs[0].y - 1), new MapLocation(HQs[0].x + 1, HQs[0].y - 1),
+				new MapLocation(HQs[0].x + 0, HQs[0].y - 1), new MapLocation(HQs[0].x + 0, HQs[0].y - 2)
+				};
+		int currPos = 0;
+		while(!rc.getLocation().equals(wallBuilding[currPos])) {
+			if(rc.canSenseLocation(wallBuilding[currPos]) && rc.senseRobotAtLocation(wallBuilding[currPos]) != null) {
+				System.out.println("Nope: " + wallBuilding[currPos]);
+				currPos++;
+			} else {
+				moveCloser(wallBuilding[currPos], false);
+				Clock.yield();
+			}
+		}
+		Direction dig = getDirection(HQs[0], rc.getLocation());
+		Direction deposit = Direction.CENTER;
+		if(findAdjacentRobot(RobotType.HQ, rc.getTeam()) != null) {
+			deposit = dig;
+			dig = Direction.CENTER;
+		}
+		
+		while(true) {
+			if(rc.canDigDirt(dig)) {
+				rc.digDirt(dig);
+			} else if(rc.canDepositDirt(deposit)){
+				rc.depositDirt(deposit);
+			} else {
+				System.out.println("I failed");
+			}
+			Clock.yield();
+		}
+	}
+
+	private static void runDeliveryDrone() throws GameActionException {
+		while(true) {
+			moveCloser(new MapLocation(rc.getMapWidth() - 1, rc.getMapHeight() -1), false);
+			Clock.yield();
+		}
 
 	}
 
-	private static void runLandscaper() {
-		// TODO Auto-generated method stub
-
-	}
-
-	private static void runDeliveryDrone() {
-		// TODO Auto-generated method stub
-
-	}
-
-	private static void runNetGun() {
-		// TODO Auto-generated method stub
+	private static void runNetGun() throws GameActionException {
+		// Likely not going to use
+		Team opp = rc.getTeam().opponent();
+		
+		while(true) {
+			for(RobotInfo robo : rc.senseNearbyRobots(15, opp)) {
+				if(robo.type == RobotType.DELIVERY_DRONE && rc.canShootUnit(robo.ID)) {
+					rc.shootUnit(robo.ID);
+					break;
+				}
+			}
+			Clock.yield();
+		}
 
 	}
 
@@ -367,6 +488,10 @@ public strictfp class RobotPlayer {
 
 	// Building robots
 	private static boolean buildRobot(RobotType rType, Direction prefDir) throws GameActionException {
+		if(rc.getTeamSoup() < rType.cost) {
+			return false;
+		}
+		
 		int[] baseDir = {0,1,2,-1,-2,3,-3,4};
 		int dirI = directions.indexOf(prefDir);
 
@@ -462,6 +587,9 @@ public strictfp class RobotPlayer {
 
 		int[] baseMove = {0,1,2,-1,-2,3,-3,4};
 		int dir = directions.indexOf(getDirection(rc.getLocation(), target));
+		if(dir == -1) { // On spot already
+			return false;
+		}
 
 		Direction moveDir;
 		for(int dDir : baseMove) {
@@ -492,12 +620,12 @@ public strictfp class RobotPlayer {
 	
 	private static boolean canMoveComplete(Direction moveDir, boolean avoidWalls) throws GameActionException {
 		return prevSpot != moveDir && rc.canMove(moveDir) && !rc.senseFlooding(new MapLocation(rc.getLocation().x + moveDir.dx, rc.getLocation().y + moveDir.dy))
-				&& (!avoidWalls || avoidWalls(moveDir)) && potFlooding(moveDir);
+				&& (!avoidWalls || avoidWalls(moveDir)) && !potFlooding(moveDir);
 	}
 
 	private static boolean potFlooding(Direction moveDir) throws GameActionException {
 		int round = rc.getRoundNum() + 5;
-		return rc.senseElevation(new MapLocation(rc.getLocation().x + moveDir.dx, rc.getLocation().y + moveDir.dy)) > 1;
+		return rc.senseElevation(new MapLocation(rc.getLocation().x + moveDir.dx, rc.getLocation().y + moveDir.dy)) < 1;
 	}
 	private static boolean avoidWalls(Direction dir) {
 		MapLocation loc = rc.getLocation();
@@ -511,6 +639,10 @@ public strictfp class RobotPlayer {
 	
 	// Targeting
 	private static Direction getDirection(MapLocation start, MapLocation end) {
+		if(start.equals(end)) {
+			return Direction.CENTER;
+		}
+		
 		double angle = (Math.atan2(end.y - start.y, end.x - start.x))/Math.PI + 1;
 
 		if(angle > 15.0/8 || angle <= 1.0/8) {
@@ -552,7 +684,7 @@ public strictfp class RobotPlayer {
 		MapLocation loc = rc.getLocation();
 		MapLocation closest = HQs[0];
 		System.out.println(refs[0] + " " + refs[1]);
-		if(refs[0] != null && getRSquared(loc, refs[0]) <= getRSquared(loc, closest)) {
+		if(DesSch != null || refs[0] != null && getRSquared(loc, refs[0]) <= getRSquared(loc, closest)) {
 			closest = refs[0];
 		}
 		if(refs[1] != null && getRSquared(loc, refs[1]) <= getRSquared(loc, closest)) {
@@ -580,12 +712,12 @@ public strictfp class RobotPlayer {
 	private static void analyzeTransaction(Transaction t) {
 		MapLocation loc;
 		if(t.getMessage()[0] == 21) {
-			loc = new MapLocation(t.getMessage()[1],  t.getMessage()[2]);
+			loc = new MapLocation(t.getMessage()[1], t.getMessage()[2]);
 			HQs[1] = loc;
 			map.put(loc, new int[] {0,0,0,-1});
 		} else if(t.getMessage()[0] == 22) {
 			System.out.println("Refinery Found");
-			loc = new MapLocation(t.getMessage()[1],  t.getMessage()[2]);
+			loc = new MapLocation(t.getMessage()[1], t.getMessage()[2]);
 			if(refs[0] == null) {
 				refs[0] = loc;
 			} else {
@@ -593,9 +725,13 @@ public strictfp class RobotPlayer {
 			}
 			map.put(loc, new int[] {0,0,0,2});
 		} else if(t.getMessage()[0] == 117290) {
-			loc = new MapLocation(t.getMessage()[1],  t.getMessage()[2]);
+			loc = new MapLocation(t.getMessage()[1], t.getMessage()[2]);
 			soup.put(loc, t.getMessage()[3]);
 			map.put(loc, new int[] {0,0,t.getMessage()[3],0});
+		} else if(t.getMessage()[0] == 117293) {
+			loc = new MapLocation(t.getMessage()[1], t.getMessage()[2]);
+			DesSch = loc;
+			map.put(loc, new int[] {0,0,0,5});
 		}
 	}
 }
