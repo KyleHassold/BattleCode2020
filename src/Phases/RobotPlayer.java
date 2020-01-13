@@ -1,8 +1,6 @@
 package Phases;
 
-import java.util.ArrayList;
-import java.util.Comparator;
-import java.util.HashMap;
+import java.util.*;
 
 import battlecode.common.*;
 
@@ -46,7 +44,14 @@ public strictfp class RobotPlayer {
 	static MapLocation[] refs = new MapLocation[2];
 	static Direction prevSpot;
 
+
+	static int[][] breadcrumbMap = null;
+	static List<MapLocation> pathFromHQ = new ArrayList<MapLocation>();
+
 	public static void run(RobotController rc) throws GameActionException {
+		if (breadcrumbMap == null)
+			breadcrumbMap = new int[rc.getMapWidth()][rc.getMapHeight()];
+
 		RobotPlayer.rc = rc;
 		directions.add(Direction.NORTH);
 		directions.add(Direction.NORTHEAST);
@@ -158,7 +163,7 @@ public strictfp class RobotPlayer {
 		while(true) {
 			///// Check Transactions for base found /////
 			checkTransactions();
-			if(HQs[1] != null) {
+			if(HQs[1] != null || rc.getRoundNum() >= 200) {
 				runBuilderMiner(target, refLoc, 0);
 				break;
 			}
@@ -171,8 +176,8 @@ public strictfp class RobotPlayer {
 			for(MapLocation loc : sensed.keySet()) {
 				if(sensed.get(loc)[2] != 0) {
 					soup.put(loc, sensed.get(loc)[2]);
-					if(rc.canSubmitTransaction(new int[] {117290, loc.x, loc.y}, sensed.get(loc)[2])) {
-						rc.submitTransaction(new int[] {117290, loc.x, loc.y}, sensed.get(loc)[2]);
+					if(rc.canSubmitTransaction(new int[] {117290, loc.x, loc.y, -1}, sensed.get(loc)[2])) {
+						rc.submitTransaction(new int[] {117290, loc.x, loc.y, -1}, sensed.get(loc)[2]);
 					}
 					int potScore = getRefineryScore(target, loc, soup.get(loc));
 					System.out.println(potScore);
@@ -206,9 +211,9 @@ public strictfp class RobotPlayer {
 	
 	private static void runBuilderMiner(MapLocation target, MapLocation refLoc, double score) throws GameActionException {
 		System.out.println("I'm a Builder Miner!");
-		while(rc.getRobotCount() < 9) {
+		while(rc.getRobotCount() < 9  && rc.getRoundNum() < 200) {
 			checkTransactions();
-			
+
 			if(Math.random() > 0.25 || HQs[1] == null) {
 				moveRandom();
 			} else {
@@ -239,14 +244,14 @@ public strictfp class RobotPlayer {
 		}
 		while(true) {
 			checkTransactions();
-			
-			if(rc.getTeamSoup() >= 200 & buildRobot(RobotType.REFINERY, Direction.NORTH)) {
+			if(rc.getTeamSoup() >= 200 && buildRobot(RobotType.REFINERY, Direction.NORTH)) {
 				MapLocation loc = new MapLocation(rc.getLocation().x, rc.getLocation().y + 1);
 				if(refs[0] == null) {
 					refs[0] = loc;
 				} else {
 					refs[1] = loc;
 				}
+				System.out.println(loc);
 				map.put(loc, new int[] {0, map.get(loc)[1], map.get(loc)[2], 2});
 				if(rc.canSubmitTransaction(new int[] {22, loc.x, loc.y}, 1)) {
 					rc.submitTransaction(new int[] {22, loc.x, loc.y}, 1);
@@ -279,6 +284,8 @@ public strictfp class RobotPlayer {
 				target = getBestSoup(); //Check this
 				moveCloser(target, false);
 				System.out.println(target);
+				pathFromHQ.add(rc.getLocation());
+				improvePath();
 			} else if(soup.isEmpty()) {
 				moveRandom();
 			} else if(loc.equals(target)){
@@ -295,6 +302,8 @@ public strictfp class RobotPlayer {
 				}
 			} else {
 				moveCloser(target, false);
+				pathFromHQ.add(rc.getLocation());
+				improvePath();
 			}
 			
 			HashMap<MapLocation, int[]> sensed = newSensor();
@@ -322,6 +331,7 @@ public strictfp class RobotPlayer {
 			checkTransactions();
 			if(rc.canDepositSoup(getDirection(rc.getLocation(), ref))) {
 				rc.depositSoup(getDirection(rc.getLocation(), ref), 100);
+				pathFromHQ = new ArrayList<MapLocation>();
 			}
 			Clock.yield();
 		}
@@ -460,18 +470,65 @@ public strictfp class RobotPlayer {
 			return false;
 		}
 
-		int[] baseMove = {0,1,2,-1,-2,3,-3,4};
+		int[] baseMove = {0, 1, 2, -1, -2, 3, -3, 4};
+
+		if(target == closestRef()) {
+			for (int dDir : baseMove) {
+				Direction md = directions.get((dDir + 8) % 8);
+				MapLocation spotToMove = new MapLocation(rc.getLocation().x + md.dx, rc.getLocation().y + md.dy);
+				if (pathFromHQ.contains(spotToMove))
+				{
+					pathFromHQ.remove(spotToMove);
+					if (canMoveComplete(md, avoidWalls)) {   // check for breadcrumbs here
+						rc.move(md);
+						System.out.println("Retracing path!");
+						breadcrumbMap[spotToMove.x][spotToMove.y] += 1;
+						prevSpot = directions.get((dDir + 4) % 8);
+						return true;
+					}
+				}
+			}
+		}
+
+		System.out.println("Stuck here!");
+
+		int[] bcval = {0, 0, 0, 0, 0, 0, 0, 0};
 		int dir = directions.indexOf(getDirection(rc.getLocation(), target));
 
+		int leastbc = 10000;
+
+		int ct = 0;
+		for (int dDir : baseMove) {
+			Direction md = directions.get((dir + dDir + 8) % 8);
+			MapLocation spotToMove = new MapLocation(rc.getLocation().x + md.dx, rc.getLocation().y + md.dy);
+			bcval[ct] = breadcrumbMap[spotToMove.x][spotToMove.y];
+			if (bcval[ct] < leastbc)
+				leastbc = bcval[ct];
+			ct++;
+		}
+
+		List<Integer> choiceofdirs = new ArrayList<Integer>();
+
+		ct = 0;
+		for (int dDir : baseMove) {
+			if (bcval[ct] == leastbc)
+				choiceofdirs.add(dDir);
+		}
+
+
 		Direction moveDir;
-		for(int dDir : baseMove) {
+		for (int dDir : baseMove) {
 			moveDir = directions.get((dir + dDir + 8) % 8);
-			if(canMoveComplete(moveDir, avoidWalls)) {
+			MapLocation spotToMove = new MapLocation(rc.getLocation().x + moveDir.dx, rc.getLocation().y + moveDir.dy);
+			System.out.println("direction/bc" + moveDir.toString() + " " + Integer.toString(breadcrumbMap[spotToMove.x][spotToMove.y]));
+			if (canMoveComplete(moveDir, avoidWalls) && breadcrumbMap[spotToMove.x][spotToMove.y] < 7) {   // check for breadcrumbs here
 				rc.move(moveDir);
+				breadcrumbMap[spotToMove.x][spotToMove.y] += 1;
 				prevSpot = directions.get((dir + dDir + 4) % 8);
 				return true;
 			}
 		}
+
 		return false;
 	}
 
@@ -598,4 +655,14 @@ public strictfp class RobotPlayer {
 			map.put(loc, new int[] {0,0,t.getMessage()[3],0});
 		}
 	}
+
+	private static void improvePath()
+	{
+		MapLocation elemToCheck = pathFromHQ.get(pathFromHQ.size()-1);
+		if (Collections.frequency(pathFromHQ, elemToCheck) > 1)
+		{
+			pathFromHQ = pathFromHQ.subList(pathFromHQ.indexOf(elemToCheck), pathFromHQ.size()-2);
+		}
+	}
+
 }
