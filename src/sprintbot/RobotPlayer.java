@@ -1,11 +1,11 @@
 package sprintbot;
 
 import battlecode.common.*;
-import battlecode.world.GameWorld;
 import java.util.*;
 
 //-------------------------------------------------- INFO --------------------------------------
 
+/*
 BLOCKCHAIN CODES:
     117290 = Soup
     117291 = HQ Location
