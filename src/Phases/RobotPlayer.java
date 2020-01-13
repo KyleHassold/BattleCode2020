@@ -171,6 +171,9 @@ public strictfp class RobotPlayer {
 			for(MapLocation loc : sensed.keySet()) {
 				if(sensed.get(loc)[2] != 0) {
 					soup.put(loc, sensed.get(loc)[2]);
+					if(rc.canSubmitTransaction(new int[] {117290, loc.x, loc.y}, sensed.get(loc)[2])) {
+						rc.submitTransaction(new int[] {117290, loc.x, loc.y}, sensed.get(loc)[2]);
+					}
 					int potScore = getRefineryScore(target, loc, soup.get(loc));
 					System.out.println(potScore);
 					if(getRSquared(HQs[0], loc) > RobotType.REFINERY.pollutionRadiusSquared * 2 && potScore > refScore) {
@@ -182,7 +185,7 @@ public strictfp class RobotPlayer {
 
 			if(rc.canSenseLocation(target)) {
 				RobotInfo enemyHQ = rc.senseRobotAtLocation(target);
-				if(enemyHQ == null || enemyHQ.team != rc.getTeam().opponent() || enemyHQ.type != RobotType.HQ) {
+				if(enemyHQ == null || enemyHQ.team == rc.getTeam() || enemyHQ.type != RobotType.HQ) {
 					runBuilderMiner(target, refLoc, 0);
 				} else {
 					HQs[1] = new MapLocation(enemyHQ.location.x, enemyHQ.location.y);
@@ -217,6 +220,9 @@ public strictfp class RobotPlayer {
 			for(MapLocation loc : sensed.keySet()) {
 				if(sensed.get(loc)[2] != 0) {
 					soup.put(loc, sensed.get(loc)[2]);
+					if(rc.canSubmitTransaction(new int[] {117290, loc.x, loc.y}, sensed.get(loc)[2])) {
+						rc.submitTransaction(new int[] {117290, loc.x, loc.y}, sensed.get(loc)[2]);
+					}
 					int potScore = getRefineryScore(target, loc, soup.get(loc));
 					System.out.println(potScore);
 					if(getRSquared(HQs[0], loc) > RobotType.REFINERY.pollutionRadiusSquared * 2 && potScore > score) {
@@ -270,7 +276,7 @@ public strictfp class RobotPlayer {
 			loc = rc.getLocation();
 			
 			if(!soup.isEmpty() && target == null) {
-				target = getClosestSoup(); //Check this
+				target = getBestSoup(); //Check this
 				moveCloser(target, false);
 				System.out.println(target);
 			} else if(soup.isEmpty()) {
@@ -485,9 +491,14 @@ public strictfp class RobotPlayer {
 	}
 	
 	private static boolean canMoveComplete(Direction moveDir, boolean avoidWalls) throws GameActionException {
-		return prevSpot != moveDir && rc.canMove(moveDir) && !rc.senseFlooding(new MapLocation(rc.getLocation().x + moveDir.dx, rc.getLocation().y + moveDir.dy)) && (!avoidWalls || avoidWalls(moveDir));
+		return prevSpot != moveDir && rc.canMove(moveDir) && !rc.senseFlooding(new MapLocation(rc.getLocation().x + moveDir.dx, rc.getLocation().y + moveDir.dy))
+				&& (!avoidWalls || avoidWalls(moveDir)) && potFlooding(moveDir);
 	}
 
+	private static boolean potFlooding(Direction moveDir) throws GameActionException {
+		int round = rc.getRoundNum() + 5;
+		return rc.senseElevation(new MapLocation(rc.getLocation().x + moveDir.dx, rc.getLocation().y + moveDir.dy)) > 1;
+	}
 	private static boolean avoidWalls(Direction dir) {
 		MapLocation loc = rc.getLocation();
 		if(loc.x + dir.dx < Math.pow(rc.getType().sensorRadiusSquared, 0.5) || loc.x + dir.dx > rc.getMapWidth() - Math.pow(rc.getType().sensorRadiusSquared, 0.5)) {
@@ -521,14 +532,17 @@ public strictfp class RobotPlayer {
 		}
 	}
 	
-	private static MapLocation getClosestSoup() {
+	private static MapLocation getBestSoup() {
 		ArrayList<MapLocation> locs = new ArrayList<MapLocation>();
 		locs.addAll(soup.keySet());
 		locs.sort(new Comparator<MapLocation>() {
 			final MapLocation loc = rc.getLocation();
+			int kd = 10;
+			double ks = 0.1;
+			
 			@Override
 			public int compare(MapLocation arg0, MapLocation arg1) {
-				return getRSquared(loc, arg1) - getRSquared(loc, arg0);
+				return (getRSquared(loc, arg1) - getRSquared(loc, arg0)) * kd - (int)((soup.get(arg1) - soup.get(arg0)) * ks);
 			}
 		});
 		return locs.get(0);
@@ -578,6 +592,10 @@ public strictfp class RobotPlayer {
 				refs[1] = loc;
 			}
 			map.put(loc, new int[] {0,0,0,2});
+		} else if(t.getMessage()[0] == 117290) {
+			loc = new MapLocation(t.getMessage()[1],  t.getMessage()[2]);
+			soup.put(loc, t.getMessage()[3]);
+			map.put(loc, new int[] {0,0,t.getMessage()[3],0});
 		}
 	}
 }
