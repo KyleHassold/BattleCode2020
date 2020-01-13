@@ -1,10 +1,10 @@
 package sprintbot;
+
 import battlecode.common.*;
 import battlecode.world.GameWorld;
 import java.util.*;
 
 //-------------------------------------------------- INFO --------------------------------------
-/*
 
 BLOCKCHAIN CODES:
     117290 = Soup
@@ -18,11 +18,6 @@ BLOCKCHAIN PROTOCOL:
         [code, x, y, amountOfSoup, -1, -1, -1]
     for other stuff:
         [code, x, y, -1, -1, -1, -1]
-
-
-
-
-
 
  */
 
