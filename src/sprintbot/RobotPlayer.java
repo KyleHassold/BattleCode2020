@@ -1,21 +1,24 @@
 package sprintbot;
 
 import battlecode.common.*;
+import battlecode.world.GameWorld;
 import java.util.*;
 
 //-------------------------------------------------- INFO --------------------------------------
-/*
+
 BLOCKCHAIN CODES:
     117290 = Soup
     117291 = HQ Location
     117292 = Mine Location
     117293 = Design School Location
     117294 = Vaporator Location
+
 BLOCKCHAIN PROTOCOL:
     for soup:
         [code, x, y, amountOfSoup, -1, -1, -1]
     for other stuff:
         [code, x, y, -1, -1, -1, -1]
+
  */
 
 
