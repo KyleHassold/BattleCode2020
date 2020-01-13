@@ -173,8 +173,8 @@ public strictfp class RobotPlayer {
 			for(MapLocation loc : sensed.keySet()) {
 				if(sensed.get(loc)[2] != 0) {
 					soup.put(loc, sensed.get(loc)[2]);
-					if(rc.canSubmitTransaction(new int[] {117290, loc.x, loc.y}, sensed.get(loc)[2])) {
-						rc.submitTransaction(new int[] {117290, loc.x, loc.y}, sensed.get(loc)[2]);
+					if(refs[1] != null && rc.canSubmitTransaction(new int[] {117290, loc.x, loc.y, sensed.get(loc)[2]}, 1)) {
+						rc.submitTransaction(new int[] {117290, loc.x, loc.y, sensed.get(loc)[2]}, 1);
 					}
 					int potScore = getRefineryScore(target, loc, soup.get(loc));
 					System.out.println(potScore);
@@ -222,8 +222,8 @@ public strictfp class RobotPlayer {
 			for(MapLocation loc : sensed.keySet()) {
 				if(sensed.get(loc)[2] != 0) {
 					soup.put(loc, sensed.get(loc)[2]);
-					if(rc.canSubmitTransaction(new int[] {117290, loc.x, loc.y}, sensed.get(loc)[2])) {
-						rc.submitTransaction(new int[] {117290, loc.x, loc.y}, sensed.get(loc)[2]);
+					if(refs[1] != null && rc.canSubmitTransaction(new int[] {117290, loc.x, loc.y, sensed.get(loc)[2]}, 1)) {
+						rc.submitTransaction(new int[] {117290, loc.x, loc.y, sensed.get(loc)[2]}, 1);
 					}
 					int potScore = getRefineryScore(target, loc, soup.get(loc));
 					System.out.println(potScore);
@@ -280,6 +280,28 @@ public strictfp class RobotPlayer {
 		System.out.println("I'm a Soup Miner!");
 		MapLocation target = null;
 		while(true) {
+<<<<<<< Updated upstream
+=======
+			checkTransactions();
+			if(buildVap && desSch != null) {
+				MapLocation moveTo = new MapLocation(HQs[0].x - 1, HQs[0].y - 1);
+				while(!rc.getLocation().equals(moveTo)) {
+					moveCloser(moveTo, false);
+					Clock.yield();
+				}
+				while(!rc.canBuildRobot(RobotType.VAPORATOR, Direction.NORTH)) {
+					Clock.yield();
+				}
+				rc.buildRobot(RobotType.VAPORATOR, Direction.NORTH);
+				vaporator = rc.adjacentLocation(Direction.NORTH);
+				Clock.yield();
+				if(rc.canSubmitTransaction(new int[] {117294, vaporator.x, vaporator.y}, 8)) {
+					rc.submitTransaction(new int[] {117294, vaporator.x, vaporator.y}, 9);
+				}
+				rc.move(Direction.SOUTHEAST);
+				Clock.yield();
+			}
+>>>>>>> Stashed changes
 			target = getSoup(target);
 			returnSoup();
 
@@ -300,6 +322,7 @@ public strictfp class RobotPlayer {
 				System.out.println(target);
 			} else if(soup.isEmpty()) {
 				moveRandom();
+<<<<<<< Updated upstream
 			} else if(loc.equals(target)){
 				if(rc.canMineSoup(Direction.CENTER)) {
 					rc.mineSoup(Direction.CENTER);
@@ -307,6 +330,16 @@ public strictfp class RobotPlayer {
 					if(rc.senseSoup(loc) == 0) {
 						soup.remove(loc);
 						map.put(loc, new int[] {map.get(loc)[0], map.get(loc)[1], 0, 0});
+=======
+			} else if(getRSquared(loc, target) <= 2){
+				Direction dir = getDirection(loc, target);
+				if(rc.canMineSoup(dir)) {
+					rc.mineSoup(dir);
+				} else {
+					if(rc.senseSoup(loc) == 0) {
+						soup.remove(loc);
+						map.put(loc, new int[] {rc.senseFlooding(loc) ? 1 : 0, rc.senseElevation(loc), 0, 0});
+>>>>>>> Stashed changes
 						return null;
 					} else {
 						return target;
@@ -434,8 +467,12 @@ public strictfp class RobotPlayer {
 		int currPos = 0;
 		while(!rc.getLocation().equals(wallBuilding[currPos])) {
 			if(rc.canSenseLocation(wallBuilding[currPos]) && rc.senseRobotAtLocation(wallBuilding[currPos]) != null) {
+<<<<<<< Updated upstream
 				System.out.println("Nope: " + wallBuilding[currPos]);
 				currPos++;
+=======
+				currPos = (currPos + 1) % wallBuilding.length;
+>>>>>>> Stashed changes
 			} else {
 				moveCloser(wallBuilding[currPos], false);
 				Clock.yield();
@@ -453,8 +490,6 @@ public strictfp class RobotPlayer {
 				rc.digDirt(dig);
 			} else if(rc.canDepositDirt(deposit)){
 				rc.depositDirt(deposit);
-			} else {
-				System.out.println("I failed");
 			}
 			Clock.yield();
 		}
@@ -618,9 +653,24 @@ public strictfp class RobotPlayer {
 		return false;
 	}
 	
+<<<<<<< Updated upstream
 	private static boolean canMoveComplete(Direction moveDir, boolean avoidWalls) throws GameActionException {
 		return prevSpot != moveDir && rc.canMove(moveDir) && !rc.senseFlooding(new MapLocation(rc.getLocation().x + moveDir.dx, rc.getLocation().y + moveDir.dy))
 				&& (!avoidWalls || avoidWalls(moveDir)) && !potFlooding(moveDir);
+=======
+	private static boolean moveAwayFromHQ(Direction dir) {
+		MapLocation loc = rc.getLocation();
+		MapLocation adjLoc = rc.adjacentLocation(dir);
+		if(loc.x <= HQs[0].x + 1 && loc.x >= HQs[0].x - 2 && loc.x <= HQs[0].y + 1 && loc.y >= HQs[0].y - 1) {
+			return Math.abs(directions.indexOf(dir) - directions.indexOf(getDirection(HQs[0], loc)) - 4) <= 2;
+		}
+		return adjLoc.x <= HQs[0].x + 1 && adjLoc.x >= HQs[0].x - 2 && adjLoc.x <= HQs[0].y + 1 && adjLoc.y >= HQs[0].y - 1;
+	}
+
+	private static boolean canMoveComplete(Direction moveDir, boolean avoidWalls) throws GameActionException {
+		return prevSpot != moveDir && rc.canMove(moveDir) && !rc.senseFlooding(rc.adjacentLocation(moveDir))
+				&& (!avoidWalls || avoidWalls(moveDir)) /*&& (buildVap || desSch == null || rc.getType() != RobotType.MINER && moveAwayFromHQ(moveDir))*/;
+>>>>>>> Stashed changes
 	}
 
 	private static boolean potFlooding(Direction moveDir) throws GameActionException {
@@ -684,7 +734,11 @@ public strictfp class RobotPlayer {
 		MapLocation loc = rc.getLocation();
 		MapLocation closest = HQs[0];
 		System.out.println(refs[0] + " " + refs[1]);
+<<<<<<< Updated upstream
 		if(DesSch != null || refs[0] != null && getRSquared(loc, refs[0]) <= getRSquared(loc, closest)) {
+=======
+		if(desSch != null || refs[0] != null && getRSquared(loc, refs[0]) <= getRSquared(loc, closest)) {
+>>>>>>> Stashed changes
 			closest = refs[0];
 		}
 		if(refs[1] != null && getRSquared(loc, refs[1]) <= getRSquared(loc, closest)) {
