@@ -44,7 +44,9 @@ public strictfp class RobotPlayer {
 	static HashMap<MapLocation, Integer> soup = new HashMap<MapLocation, Integer>();
 	static MapLocation[] HQs = new MapLocation[2];
 	static MapLocation[] refs = new MapLocation[2];
-	static MapLocation DesSch;
+	static MapLocation desSch;
+	static MapLocation vaporator;
+	static boolean buildVap = false;
 	static Direction prevSpot;
 	static int phase = 1;
 
@@ -156,6 +158,7 @@ public strictfp class RobotPlayer {
 	private static void runSearchMiner(MapLocation target) throws GameActionException {
 		System.out.println("I'm a Search Miner!");
 		MapLocation refLoc = target;
+		System.out.println(target);
 		int refScore = 0;
 		while(true) {
 			///// Check Transactions for base found /////
@@ -242,17 +245,18 @@ public strictfp class RobotPlayer {
 		while(true) {
 			checkTransactions();
 			
-			if(rc.getTeamSoup() >= 200 & buildRobot(RobotType.REFINERY, Direction.NORTH)) {
+			if(rc.getTeamSoup() >= 210 && buildRobot(RobotType.REFINERY, Direction.NORTH)) {
 				MapLocation loc = new MapLocation(rc.getLocation().x, rc.getLocation().y + 1);
 				map.put(loc, new int[] {0, map.get(loc)[1], map.get(loc)[2], 2});
-				if(rc.canSubmitTransaction(new int[] {22, loc.x, loc.y}, 1)) {
-					rc.submitTransaction(new int[] {22, loc.x, loc.y}, 1);
+				if(rc.canSubmitTransaction(new int[] {22, loc.x, loc.y}, 10)) {
+					rc.submitTransaction(new int[] {22, loc.x, loc.y}, 10);
 				}
 				if(refs[0] == null) {
 					refs[0] = loc;
 				} else {
 					refs[1] = loc;
 					runDesignMiner();
+					buildVap = true;
 				}
 				break;
 			}
@@ -267,12 +271,12 @@ public strictfp class RobotPlayer {
 			moveCloser(target, false);
 			Clock.yield();
 		}
-		while(!rc.canBuildRobot(RobotType.DESIGN_SCHOOL, dir)) {
+		while(rc.getTeamSoup() <= RobotType.DESIGN_SCHOOL.cost + 10 || !rc.canBuildRobot(RobotType.DESIGN_SCHOOL, dir)) {
 			Clock.yield();
 		}
 		rc.buildRobot(RobotType.DESIGN_SCHOOL, dir);
-		if(rc.canSubmitTransaction(new int[] {117293, target.x + dir.dx, target.y + dir.dy}, 1)) {
-			rc.submitTransaction(new int[] {117293, target.x + dir.dx, target.y + dir.dy}, 1);
+		if(rc.canSubmitTransaction(new int[] {117293, target.x + dir.dx, target.y + dir.dy}, 10)) {
+			rc.submitTransaction(new int[] {117293, target.x + dir.dx, target.y + dir.dy}, 10);
 		}
 	}
 
@@ -280,42 +284,65 @@ public strictfp class RobotPlayer {
 		System.out.println("I'm a Soup Miner!");
 		MapLocation target = null;
 		while(true) {
+			checkTransactions();
+			if(buildVap && desSch != null) {
+				MapLocation moveTo = new MapLocation(HQs[0].x - 1, HQs[0].y - 1);
+				while(!rc.getLocation().equals(moveTo)) {
+					moveCloser(moveTo, false);
+					Clock.yield();
+				}
+				while(!rc.canBuildRobot(RobotType.VAPORATOR, Direction.NORTH)) {
+					Clock.yield();
+				}
+				rc.buildRobot(RobotType.VAPORATOR, Direction.NORTH);
+				vaporator = rc.adjacentLocation(Direction.NORTH);
+				Clock.yield();
+				if(rc.canSubmitTransaction(new int[] {117294, vaporator.x, vaporator.y}, 8)) {
+					rc.submitTransaction(new int[] {117294, vaporator.x, vaporator.y}, 9);
+				}
+				rc.move(Direction.SOUTHEAST);
+				Clock.yield();
+			}
+			
 			target = getSoup(target);
 			returnSoup();
 
-			Clock.yield();
+			
 		}
 	}
 
 	private static MapLocation getSoup(MapLocation target) throws GameActionException {
 		MapLocation loc;
 
-		while(true) {
+		while(rc.getSoupCarrying() < 100) {
 			checkTransactions();
 			loc = rc.getLocation();
 			
 			if(!soup.isEmpty() && target == null) {
+				System.out.println("1");
 				target = getBestSoup(); //Check this
 				moveCloser(target, false);
 				System.out.println(target);
 			} else if(soup.isEmpty()) {
+				System.out.println("2");
 				moveRandom();
-			} else if(loc.equals(target)){
-				if(rc.canMineSoup(Direction.CENTER)) {
-					rc.mineSoup(Direction.CENTER);
-				} else {
-					if(rc.senseSoup(loc) == 0) {
-						soup.remove(loc);
-						map.put(loc, new int[] {map.get(loc)[0], map.get(loc)[1], 0, 0});
-						return null;
-					} else {
-						return target;
+			} else if(rc.canSenseLocation(target)) {
+				System.out.println("3");
+				if(rc.senseSoup(target) == 0) {
+					soup.remove(target);
+					target = null;
+				} else if(getRSquared(loc, target) <= 2){
+					Direction dir = getDirection(loc, target);
+					if(rc.canMineSoup(dir)) {
+						rc.mineSoup(dir);
 					}
+				} else {
+					moveCloser(target, false);
 				}
 			} else {
 				moveCloser(target, false);
 			}
-			
+
 			HashMap<MapLocation, int[]> sensed = newSensor();
 			map.putAll(sensed);
 			for(MapLocation s : sensed.keySet()) {
@@ -323,9 +350,10 @@ public strictfp class RobotPlayer {
 					soup.put(s, sensed.get(s)[2]);
 				}
 			}
-			
+
 			Clock.yield();
 		}
+		return target;
 	}
 
 	private static void returnSoup() throws GameActionException {
@@ -333,11 +361,11 @@ public strictfp class RobotPlayer {
 		while(ref == null) {
 			checkTransactions();
 			moveCloser(closestRef(), false);
-			System.out.println("Closest Refinery: " + closestRef());
 			ref = findAdjacentRobot(RobotType.REFINERY, rc.getTeam());
 			Clock.yield();
 		}
 		while(rc.getSoupCarrying() > 0) {
+			System.out.println("Deposit");
 			checkTransactions();
 			if(rc.canDepositSoup(getDirection(rc.getLocation(), ref))) {
 				rc.depositSoup(getDirection(rc.getLocation(), ref), 100);
@@ -353,8 +381,9 @@ public strictfp class RobotPlayer {
 	}
 
 	private static void runVaporator() {
-		// TODO Auto-generated method stub
-
+		while(true) {
+			Clock.yield();
+		}
 	}
 
 	private static void runDesignSchool() throws GameActionException {
@@ -365,7 +394,7 @@ public strictfp class RobotPlayer {
 		
 		
 		// Spawn in 5 Landscapers for phase 2
-		while(count < 28) {
+		while(count < 9) {
 			checkTransactions();
 			if(rc.canBuildRobot(RobotType.LANDSCAPER, dir)) {
 				rc.buildRobot(RobotType.LANDSCAPER, dir);
@@ -375,6 +404,21 @@ public strictfp class RobotPlayer {
 		}
 		
 		// Wait for phase 3
+		while(vaporator == null) {
+			checkTransactions();
+			Clock.yield();
+		}
+		
+		while(count < 10) {
+			checkTransactions();
+			if(rc.canBuildRobot(RobotType.LANDSCAPER, dir)) {
+				rc.buildRobot(RobotType.LANDSCAPER, dir);
+				count++;
+			}
+			Clock.yield();
+		}
+		
+		// Prevent future code
 		while(phase < 3) {
 			checkTransactions();
 			Clock.yield();
@@ -416,6 +460,13 @@ public strictfp class RobotPlayer {
 		HQs[0] = new MapLocation(loc.x - 4 * dir.dx, loc.y - 4 * dir.dy);
 		// Phase 3 landscaper locations
 		MapLocation[] wallBuilding = new MapLocation[] {
+				new MapLocation(HQs[0].x - 2, HQs[0].y - 1), new MapLocation(HQs[0].x - 2, HQs[0].y - 0),
+				new MapLocation(HQs[0].x - 2, HQs[0].y + 1), new MapLocation(HQs[0].x - 1, HQs[0].y + 1),
+				new MapLocation(HQs[0].x - 0, HQs[0].y + 1), new MapLocation(HQs[0].x + 1, HQs[0].y + 1),
+				new MapLocation(HQs[0].x + 1, HQs[0].y + 0), new MapLocation(HQs[0].x + 1, HQs[0].y - 1),
+				new MapLocation(HQs[0].x - 0, HQs[0].y - 1), new MapLocation(HQs[0].x - 1, HQs[0].y - 1),
+		};
+				/*
 				new MapLocation(HQs[0].x - 1, HQs[0].y - 2), new MapLocation(HQs[0].x - 2, HQs[0].y - 2),
 				new MapLocation(HQs[0].x - 3, HQs[0].y - 2), new MapLocation(HQs[0].x - 3, HQs[0].y - 1),
 				new MapLocation(HQs[0].x - 3, HQs[0].y - 0), new MapLocation(HQs[0].x - 3, HQs[0].y + 1),
@@ -430,12 +481,13 @@ public strictfp class RobotPlayer {
 				new MapLocation(HQs[0].x - 2, HQs[0].y + 0), new MapLocation(HQs[0].x - 2, HQs[0].y - 1),
 				new MapLocation(HQs[0].x - 1, HQs[0].y - 1), new MapLocation(HQs[0].x + 1, HQs[0].y - 1),
 				new MapLocation(HQs[0].x + 0, HQs[0].y - 1), new MapLocation(HQs[0].x + 0, HQs[0].y - 2)
-				};
+		};
+				*/
 		int currPos = 0;
 		while(!rc.getLocation().equals(wallBuilding[currPos])) {
 			if(rc.canSenseLocation(wallBuilding[currPos]) && rc.senseRobotAtLocation(wallBuilding[currPos]) != null) {
 				System.out.println("Nope: " + wallBuilding[currPos]);
-				currPos++;
+				currPos = (currPos + 1) % wallBuilding.length;
 			} else {
 				moveCloser(wallBuilding[currPos], false);
 				Clock.yield();
@@ -443,10 +495,12 @@ public strictfp class RobotPlayer {
 		}
 		Direction dig = getDirection(HQs[0], rc.getLocation());
 		Direction deposit = Direction.CENTER;
+		/*
 		if(findAdjacentRobot(RobotType.HQ, rc.getTeam()) != null) {
 			deposit = dig;
 			dig = Direction.CENTER;
 		}
+		*/
 		
 		while(true) {
 			if(rc.canDigDirt(dig)) {
@@ -518,7 +572,7 @@ public strictfp class RobotPlayer {
 			for(int x = Math.max(loc.x - (int) (Math.pow(rSq - Math.pow(y - loc.y, 2), 0.5)), stopLoc.x); x <= Math.min(loc.x + (int) ((Math.pow(rSq - Math.pow(y - loc.y, 2), 0.5))), rc.getMapWidth()); x++) {
 				senseLoc = new MapLocation(x, y);
 				if(!map.containsKey(senseLoc) && rc.canSenseLocation(senseLoc)) {
-					results.put(senseLoc, new int[] {rc.senseFlooding(senseLoc) ? 1 : 0, rc.senseElevation(senseLoc), rc.senseSoup(senseLoc)});
+					results.put(senseLoc, new int[] {rc.senseFlooding(senseLoc) ? 1 : 0, rc.senseElevation(senseLoc), rc.senseSoup(senseLoc), 0});
 				}
 				if(Clock.getBytecodesLeft() < 500) {
 					stopLoc = new MapLocation(senseLoc.x, senseLoc.y);
@@ -585,22 +639,15 @@ public strictfp class RobotPlayer {
 			return false;
 		}
 
-		int[] baseMove = {0,1,2,-1,-2,3,-3,4};
-		int dir = directions.indexOf(getDirection(rc.getLocation(), target));
-		if(dir == -1) { // On spot already
+		Direction bestMove = getBestMove(getDirection(rc.getLocation(), target), avoidWalls);
+		
+		if(bestMove == Direction.CENTER) {
 			return false;
 		}
-
-		Direction moveDir;
-		for(int dDir : baseMove) {
-			moveDir = directions.get((dir + dDir + 8) % 8);
-			if(canMoveComplete(moveDir, avoidWalls)) {
-				rc.move(moveDir);
-				prevSpot = directions.get((dir + dDir + 4) % 8);
-				return true;
-			}
-		}
-		return false;
+		
+		rc.move(bestMove);
+		prevSpot = directions.get((directions.indexOf(bestMove) + 4) % 8);
+		return true;
 	}
 
 	private static boolean moveRandom() throws GameActionException {
@@ -618,20 +665,58 @@ public strictfp class RobotPlayer {
 		return false;
 	}
 	
-	private static boolean canMoveComplete(Direction moveDir, boolean avoidWalls) throws GameActionException {
-		return prevSpot != moveDir && rc.canMove(moveDir) && !rc.senseFlooding(new MapLocation(rc.getLocation().x + moveDir.dx, rc.getLocation().y + moveDir.dy))
-				&& (!avoidWalls || avoidWalls(moveDir)) && !potFlooding(moveDir);
+	private static Direction getBestMove(Direction prefMove, boolean avoidWalls) throws GameActionException {
+		Direction best = Direction.CENTER;
+		int score = -10;
+		for(Direction dir : directions) {
+			if(canMoveComplete(dir, false)) {
+				int tempScore = 0;
+				tempScore = Math.abs(Math.abs(directions.indexOf(dir) - directions.indexOf(prefMove)) - 4) + 1;
+				if(desSch != null && rc.getType() == RobotType.MINER && !buildVap) {
+					tempScore += moveAwayFromHQ(dir) ? 1 : -1;
+				}
+				if(rc.getType() != RobotType.DELIVERY_DRONE && potFlooding(rc.adjacentLocation(dir))) {
+					tempScore += -1;
+				}
+				if(avoidWalls && !avoidWalls(dir)) {
+					tempScore += -1;
+				}
+				
+				if(tempScore > score) {
+					best = dir;
+					score = tempScore;
+				}
+			}
+		}
+		//System.out.println(best + ": " + score);
+		return best;
+	}
+	
+	private static boolean moveAwayFromHQ(Direction dir) {
+		MapLocation loc = rc.getLocation();
+		MapLocation adjLoc = rc.adjacentLocation(dir);
+		if(loc.x <= HQs[0].x + 1 && loc.x >= HQs[0].x - 2 && loc.x <= HQs[0].y + 1 && loc.y >= HQs[0].y - 1) {
+			return Math.abs(directions.indexOf(dir) - directions.indexOf(getDirection(HQs[0], loc)) - 4) <= 2;
+		}
+		return adjLoc.x <= HQs[0].x + 1 && adjLoc.x >= HQs[0].x - 2 && adjLoc.x <= HQs[0].y + 1 && adjLoc.y >= HQs[0].y - 1;
 	}
 
-	private static boolean potFlooding(Direction moveDir) throws GameActionException {
-		int round = rc.getRoundNum() + 5;
-		return rc.senseElevation(new MapLocation(rc.getLocation().x + moveDir.dx, rc.getLocation().y + moveDir.dy)) < 1;
+	private static boolean canMoveComplete(Direction moveDir, boolean avoidWalls) throws GameActionException {
+		return prevSpot != moveDir && rc.canMove(moveDir) && !rc.senseFlooding(rc.adjacentLocation(moveDir))
+				&& (!avoidWalls || avoidWalls(moveDir));
 	}
+
+	private static boolean potFlooding(MapLocation loc) throws GameActionException {
+		int round = rc.getRoundNum() + 5;
+		int waterLevel = (int) (Math.pow(Math.E, 0.0028*round - 1.38*Math.sin(0.00157*round - 1.73) + 1.38*Math.sin(-1.78)) - 1);
+		return rc.senseElevation(loc) <= waterLevel;
+	}
+	
 	private static boolean avoidWalls(Direction dir) {
-		MapLocation loc = rc.getLocation();
-		if(loc.x + dir.dx < Math.pow(rc.getType().sensorRadiusSquared, 0.5) || loc.x + dir.dx > rc.getMapWidth() - Math.pow(rc.getType().sensorRadiusSquared, 0.5)) {
+		MapLocation loc = rc.adjacentLocation(dir);
+		if(loc.x < Math.pow(rc.getType().sensorRadiusSquared, 0.5) || loc.x > rc.getMapWidth() - Math.pow(rc.getType().sensorRadiusSquared, 0.5)) {
 			return false;
-		} else if (loc.y + dir.dy < Math.pow(rc.getType().sensorRadiusSquared, 0.5) || loc.y + dir.dy > rc.getMapHeight() - Math.pow(rc.getType().sensorRadiusSquared, 0.5)) {
+		} else if (loc.y < Math.pow(rc.getType().sensorRadiusSquared, 0.5) || loc.y > rc.getMapHeight() - Math.pow(rc.getType().sensorRadiusSquared, 0.5)) {
 			return false;
 		}
 		return true;
@@ -684,7 +769,7 @@ public strictfp class RobotPlayer {
 		MapLocation loc = rc.getLocation();
 		MapLocation closest = HQs[0];
 		System.out.println(refs[0] + " " + refs[1]);
-		if(DesSch != null || refs[0] != null && getRSquared(loc, refs[0]) <= getRSquared(loc, closest)) {
+		if((desSch != null && refs[0] != null) || (refs[0] != null && getRSquared(loc, refs[0]) <= getRSquared(loc, closest))) {
 			closest = refs[0];
 		}
 		if(refs[1] != null && getRSquared(loc, refs[1]) <= getRSquared(loc, closest)) {
@@ -730,8 +815,12 @@ public strictfp class RobotPlayer {
 			map.put(loc, new int[] {0,0,t.getMessage()[3],0});
 		} else if(t.getMessage()[0] == 117293) {
 			loc = new MapLocation(t.getMessage()[1], t.getMessage()[2]);
-			DesSch = loc;
+			desSch = loc;
 			map.put(loc, new int[] {0,0,0,5});
+		} else if(t.getMessage()[0] == 117294) {
+			loc = new MapLocation(t.getMessage()[1], t.getMessage()[2]);
+			vaporator = loc;
+			map.put(loc, new int[] {0,0,0,4});
 		}
 	}
 }
