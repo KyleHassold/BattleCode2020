@@ -1,8 +1,10 @@
 package Phases;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashMap;
+import java.util.List;
 
 import battlecode.common.*;
 
@@ -47,9 +49,13 @@ public strictfp class RobotPlayer {
 	static MapLocation DesSch;
 	static Direction prevSpot;
 	static int phase = 1;
+	
+	static int[][] breadcrumbMap;
+	static List<MapLocation> pathFromHQ = new ArrayList<MapLocation>();
 
 	public static void run(RobotController rc) throws GameActionException {
 		RobotPlayer.rc = rc;
+		breadcrumbMap = new int[rc.getMapWidth()][rc.getMapHeight()];
 		directions.add(Direction.NORTH);
 		directions.add(Direction.NORTHEAST);
 		directions.add(Direction.EAST);
@@ -294,9 +300,13 @@ public strictfp class RobotPlayer {
 			checkTransactions();
 			loc = rc.getLocation();
 			
-			if(!soup.isEmpty() && target == null) {
-				target = getBestSoup(); //Check this
+			if(!soup.isEmpty()) {
+				if(target == null) {
+					target = getBestSoup(); //Check this
+				}
 				moveCloser(target, false);
+				pathFromHQ.add(rc.getLocation());
+				improvePath();
 				System.out.println(target);
 			} else if(soup.isEmpty()) {
 				moveRandom();
@@ -312,8 +322,6 @@ public strictfp class RobotPlayer {
 						return target;
 					}
 				}
-			} else {
-				moveCloser(target, false);
 			}
 			
 			HashMap<MapLocation, int[]> sensed = newSensor();
@@ -341,6 +349,7 @@ public strictfp class RobotPlayer {
 			checkTransactions();
 			if(rc.canDepositSoup(getDirection(rc.getLocation(), ref))) {
 				rc.depositSoup(getDirection(rc.getLocation(), ref), 100);
+				pathFromHQ = new ArrayList<MapLocation>();
 			}
 			Clock.yield();
 		}
@@ -585,22 +594,79 @@ public strictfp class RobotPlayer {
 			return false;
 		}
 
-		int[] baseMove = {0,1,2,-1,-2,3,-3,4};
-		int dir = directions.indexOf(getDirection(rc.getLocation(), target));
-		if(dir == -1) { // On spot already
-			return false;
-		}
+		int[] baseMove = {0, 1, 2, -1, -2, 3, -3, 4};
 
-		Direction moveDir;
-		for(int dDir : baseMove) {
-			moveDir = directions.get((dir + dDir + 8) % 8);
-			if(canMoveComplete(moveDir, avoidWalls)) {
-				rc.move(moveDir);
-				prevSpot = directions.get((dir + dDir + 4) % 8);
-				return true;
+		if(target == closestRef()) {
+			for (int dDir : baseMove) {
+				Direction md = directions.get((dDir + 8) % 8);
+				MapLocation spotToMove = new MapLocation(rc.getLocation().x + md.dx, rc.getLocation().y + md.dy);
+				if (pathFromHQ.contains(spotToMove))
+				{
+					pathFromHQ.remove(spotToMove);
+					if (canMoveComplete(md, avoidWalls)) {   // check for breadcrumbs here
+						rc.move(md);
+						System.out.println("Retracing path!");
+						breadcrumbMap[spotToMove.x][spotToMove.y] += 1;
+						prevSpot = directions.get((dDir + 4) % 8);
+						return true;
+					}
+				}
 			}
 		}
+
+		System.out.println("Stuck here!");
+
+		int[] bcval = {0, 0, 0, 0, 0, 0, 0, 0};
+		int dir = directions.indexOf(getDirection(rc.getLocation(), target));
+
+		int leastbc = 10000;
+
+		int ct = 0;
+		for (int dDir : baseMove) {
+			Direction md = directions.get((dir + dDir + 8) % 8);
+			MapLocation spotToMove = new MapLocation(rc.getLocation().x + md.dx, rc.getLocation().y + md.dy);
+			if(rc.canSenseLocation(spotToMove)) {
+				bcval[ct] = breadcrumbMap[spotToMove.x][spotToMove.y];
+				if (bcval[ct] < leastbc)
+					leastbc = bcval[ct];
+			}
+			ct++;
+		}
+
+		List<Integer> choiceofdirs = new ArrayList<Integer>();
+
+		ct = 0;
+		for (int dDir : baseMove) {
+			if (bcval[ct] == leastbc)
+				choiceofdirs.add(dDir);
+		}
+
+
+		Direction moveDir;
+		for (int dDir : baseMove) {
+			moveDir = directions.get((dir + dDir + 8) % 8);
+			MapLocation spotToMove = new MapLocation(rc.getLocation().x + moveDir.dx, rc.getLocation().y + moveDir.dy);
+			if(rc.canSenseLocation(spotToMove)) {
+				System.out.println("direction/bc" + moveDir.toString() + " " + Integer.toString(breadcrumbMap[spotToMove.x][spotToMove.y]));
+				if (canMoveComplete(moveDir, avoidWalls) && breadcrumbMap[spotToMove.x][spotToMove.y] < 7) {   // check for breadcrumbs here
+					rc.move(moveDir);
+					breadcrumbMap[spotToMove.x][spotToMove.y] += 1;
+					prevSpot = directions.get((dir + dDir + 4) % 8);
+					return true;
+				}
+			}
+		}
+
 		return false;
+	}
+	
+	private static void improvePath()
+	{
+		MapLocation elemToCheck = pathFromHQ.get(pathFromHQ.size()-1);
+		if (Collections.frequency(pathFromHQ, elemToCheck) > 1)
+		{
+			pathFromHQ = pathFromHQ.subList(pathFromHQ.indexOf(elemToCheck), pathFromHQ.size()-2);
+		}
 	}
 
 	private static boolean moveRandom() throws GameActionException {
@@ -627,6 +693,7 @@ public strictfp class RobotPlayer {
 		int round = rc.getRoundNum() + 5;
 		return rc.senseElevation(new MapLocation(rc.getLocation().x + moveDir.dx, rc.getLocation().y + moveDir.dy)) < 1;
 	}
+	
 	private static boolean avoidWalls(Direction dir) {
 		MapLocation loc = rc.getLocation();
 		if(loc.x + dir.dx < Math.pow(rc.getType().sensorRadiusSquared, 0.5) || loc.x + dir.dx > rc.getMapWidth() - Math.pow(rc.getType().sensorRadiusSquared, 0.5)) {
