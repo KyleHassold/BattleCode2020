@@ -277,9 +277,12 @@ public strictfp class RobotPlayer {
         // System.out.println(rc.getRoundMessages(turnCount-1));
     }
 
-
-    static Direction findPath(MapLocation dest) throws GameActionException {
-    	return rc.getLocation().directionTo(dest);     
+    static Direction findPath(MapLocation dest) throws GameActionException {	
+    	Direction opt = rc.getLocation().directionTo(dest);
+		if (rc.canMove(opt)) return opt;
+		if (rc.canMove(opt.rotateLeft())) return opt.rotateLeft();
+		if (rc.canMove(opt.rotateRight())) return opt.rotateRight(); 
+		return opt;     
 	}
 
 	static MapLocation findSoup() throws GameActionException {
