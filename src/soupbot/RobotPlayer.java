@@ -6,8 +6,6 @@ public strictfp class RobotPlayer {
     static MapLocation spawn;
 
     static Direction heading;
-    static boolean mining = false;
-    static boolean refining = false;
     static int miners = 0;
 
     static Direction[] directions = {
@@ -43,6 +41,11 @@ public strictfp class RobotPlayer {
         System.out.println("I'm a " + rc.getType() + " and I just got created! Heading " + heading);
         while (true) {
             turnCount += 1;
+            float cdt = rc.getCooldownTurns();
+            if (cdt >= 1) {
+				System.out.println("Cooling down for " + cdt + " turns");
+            	Clock.yield();
+			}
             // Try/catch blocks stop unhandled exceptions, which cause your robot to explode
             try {
                 // Here, we've separated the controls into a different method for each RobotType.
@@ -71,37 +74,43 @@ public strictfp class RobotPlayer {
     }
 
     static void runHQ() throws GameActionException {
-        System.out.println("Hello World From HQ\nOrigin:" + spawn + "\nHeading " + heading);
+        System.out.println("Hello World From HQ\nOrigin:" + spawn + "\nTeam Soup: " + rc.getTeamSoup());
         
         for (Direction dir : directions) 
-            if (miners < 2 && tryBuild(RobotType.MINER, dir))
+            if (miners < 4 && tryBuild(RobotType.MINER, dir))
                System.out.println("Built Miner " + ++miners + " in " + dir);
     }
 
     static void runMiner() throws GameActionException {
-        System.out.println("Hello World From Miner\nOrigin:" + spawn + "\nHeading " + heading + "\nMining " + mining);
+        System.out.println("Hello World From Miner\nOrigin:" + spawn + "\nHeading " + heading);
         
-        mining = false;
-        for (Direction dir : directions) {
+        boolean mining = false;
+        for (Direction dir : directions)
            if (tryMine(dir)) {
               System.out.println("I mined soup! " + rc.getSoupCarrying());
               mining = true;
            }
-        }
-        
+       
+		boolean refining = false; 
         for (Direction dir : directions)
-           if (tryRefine(dir))
-              System.out.println("I refined soup! " + rc.getTeamSoup());
-        
-        if(mining) return; //Don't move if mining soup
+ 			if (tryRefine(dir)) {
+				System.out.println("I refined soup! " + rc.getTeamSoup());
+				refining = true;
+        	}
 
-        if(rc.getSoupCarrying() == 0) //Move towards random heading
-           if (tryMove(heading))
-              System.out.println("I moved " + heading + "!");
-           else {
-              heading = randomDirection();
-              System.out.println("Heading changed to " + heading);
-           }
+        if (mining) return; //Don't move if mining soup
+
+        if (rc.getSoupCarrying() == 0) //Move towards random heading
+			if (tryMove(findPath(findSoup())))
+            	System.out.println("I moved to " + rc.getLocation() + "!");
+            else if (tryMove(heading)) 
+            	System.out.println("I moved " + heading + "!");	
+            else {
+				heading = randomDirection();
+            	System.out.println("Heading changed to " + heading);
+        	}
+        else tryMove(findPath(spawn)); 
+
         System.out.println("Goodnight");
     }
 
@@ -190,7 +199,7 @@ public strictfp class RobotPlayer {
      */
     static boolean tryMove(Direction dir) throws GameActionException {
         // System.out.println("I am trying to move " + dir + "; " + rc.isReady() + " " + rc.getCooldownTurns() + " " + rc.canMove(dir));
-        if (rc.isReady() && rc.canMove(dir)) {
+        if (rc.isReady() && rc.canMove(dir) && !rc.senseFlooding(rc.getLocation().add(dir))) {
             rc.move(dir);
             return true;
         } else return false;
@@ -251,4 +260,25 @@ public strictfp class RobotPlayer {
         }
         // System.out.println(rc.getRoundMessages(turnCount-1));
     }
+
+
+    static Direction findPath(MapLocation dest) throws GameActionException {
+    	return rc.getLocation().directionTo(dest);     
+	}
+
+	static MapLocation findSoup() throws GameActionException {
+		int rs = rc.getCurrentSensorRadiusSquared();
+        int r = (int) Math.sqrt(rs);
+        MapLocation loc = rc.getLocation();
+        for (int i = -r; i < r; i++)
+        	for (int j = -r; j < r; j++) {
+				MapLocation search = loc.translate(i,j);
+                if (rc.canSenseLocation(search) && rc.senseSoup(search) > 0) { 
+					System.out.println("Soup Found At " + search + "!");
+					return search;
+				}				
+			}
+		return loc.add(heading);         
+	}
+
 }
