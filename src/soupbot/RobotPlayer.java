@@ -100,9 +100,10 @@ public strictfp class RobotPlayer {
         if (mining) return; //Don't move if mining soup
 
         int soup = rc.getSoupCarrying();
+
         if (safeMove())
             System.out.println("I moved to " + rc.getLocation() + " to find safety!"); 
-		if (soup == 0 && tryMove(findPath(findSoup()))) //Move Towards Soup
+		else if (soup == 0 && tryMove(findPath(findSoup()))) //Move Towards Soup
             System.out.println("I moved to " + rc.getLocation() + " to find soup!");
         else if (soup > 0 && tryMove(findPath(spawn))) //Move Towards Refinery
 			System.out.println("I moved to " + rc.getLocation() + " to refine soup!"); 
