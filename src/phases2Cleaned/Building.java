@@ -2,13 +2,9 @@ package phases2Cleaned;
 
 import java.util.HashMap;
 
-import battlecode.common.Clock;
-import battlecode.common.GameActionException;
-import battlecode.common.MapLocation;
-import battlecode.common.RobotController;
+import battlecode.common.*;
 
 public abstract class Building extends Robot {
-	MapLocation senseStopLoc;
 
 	protected Building(RobotController rc) {
 		super(rc);
@@ -30,13 +26,12 @@ public abstract class Building extends Robot {
 				if(!map.containsKey(senseLoc) && rc.canSenseLocation(senseLoc)) {
 					results.put(senseLoc, new int[] {rc.senseFlooding(senseLoc) ? 1 : 0, rc.senseElevation(senseLoc), rc.senseSoup(senseLoc), 0});
 				}
-				if(Clock.getBytecodesLeft() < 500) {
-					senseStopLoc = new MapLocation(senseLoc.x, senseLoc.y);
+				if(stopProcessing(senseLoc)) {
 					return results;
 				}
 			}
 		}
-		senseStopLoc = new MapLocation(-1, -1);
+		doneProcessing();
 		return results;
 	}
 

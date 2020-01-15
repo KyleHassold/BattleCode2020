@@ -21,7 +21,7 @@ public abstract class Unit extends Robot {
 		HashMap<MapLocation, Integer> results = new HashMap<MapLocation, Integer>();
 		int currRadius = rc.getCurrentSensorRadiusSquared();
 		
-		if(currRadius <= prevRadius && prevSpot != null) {
+		if(currRadius <= prevRadius && prevSpot != null) { // If you have moved and the sensor hasnt been changed
 			Direction prevMove = directions.get((directions.indexOf(prevSpot) + 4) % 8);
 			if(prevMove == Direction.EAST || prevMove == Direction.WEST) {
 				results = senseHor(prevMove.dx, currRadius);
@@ -30,10 +30,13 @@ public abstract class Unit extends Robot {
 			} else {
 				results = senseDia(prevMove.dx, prevMove.dy, currRadius);
 			}
-		} else {
+		} else { // Sense entire surroundings
 			MapLocation loc = rc.getLocation();
-			for(int x = Math.max(loc.x - (int) Math.pow(currRadius, 0.5), 0); x <= Math.min(loc.x + (int) Math.pow(currRadius, 0.5), mapW); x++) {
+			for(int x = Math.max(loc.x - (int) Math.pow(currRadius, 0.5), Math.max(0, senseStopLoc.x)); x <= Math.min(loc.x + (int) Math.pow(currRadius, 0.5), mapW); x++) {
 				for(int y = Math.max(loc.y - (int) (Math.pow(currRadius - Math.pow(loc.x - x, 2), 0.5)), 0); y <= Math.min(loc.y + (int) (Math.pow(currRadius - Math.pow(loc.x - x, 2), 0.5)), mapH); y++) {
+					if(x == senseStopLoc.x) {
+						y = Math.max(y, senseStopLoc.y + 1);
+					}
 					rc.setIndicatorDot(new MapLocation(x, y), 0, 255, 255);
 					if(prevRadius < Math.pow(prevLoc.x - x, 2) + Math.pow(prevLoc.y - y, 2)) {
 						MapLocation senseSpot = new MapLocation(x, y);
@@ -47,12 +50,16 @@ public abstract class Unit extends Robot {
 								results.put(senseSpot, soupAmount);
 							}
 						}
+						if(stopProcessing(senseSpot)) {
+							return results;
+						}
 					}
 				}
 			}
 		}
 		System.out.println("Finished Sensing");
 		prevRadius = currRadius;
+		doneProcessing();
 		
 		return results;
 	}

@@ -40,6 +40,7 @@ public abstract class Robot {
 	MapLocation[] refs = new MapLocation[2];
 	MapLocation desSch;
 	MapLocation vaporator;
+	MapLocation senseStopLoc = new MapLocation(-2,-2);
 	int mapH;
 	int mapW;
 	int phase = 1;
@@ -122,6 +123,18 @@ public abstract class Robot {
 			}
 		}
 		return null;
+	}
+	
+	protected boolean stopProcessing(MapLocation senseLoc) {
+		if(Clock.getBytecodesLeft() < 500) {
+			senseStopLoc = new MapLocation(senseLoc.x, senseLoc.y);
+			return true;
+		}
+		return false;
+	}
+	
+	protected void doneProcessing() {
+		senseStopLoc = new MapLocation(-1,-1);
 	}
 	
 	// Blockchain
