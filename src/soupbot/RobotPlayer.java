@@ -100,16 +100,18 @@ public strictfp class RobotPlayer {
 
         if (mining) return; //Don't move if mining soup
 
-        if (rc.getSoupCarrying() == 0) //Move towards random heading
-			if (tryMove(findPath(findSoup())))
-            	System.out.println("I moved to " + rc.getLocation() + "!");
-            else if (tryMove(heading)) 
-            	System.out.println("I moved " + heading + "!");	
-            else {
-				heading = randomDirection();
-            	System.out.println("Heading changed to " + heading);
-        	}
-        else tryMove(findPath(spawn)); 
+        int soup = rc.getSoupCarrying();
+        
+		if (soup == 0 && tryMove(findPath(findSoup())))
+            System.out.println("I moved to " + rc.getLocation() + " to find soup!");
+        else if (soup > 0 && tryMove(findPath(spawn)))
+			System.out.println("I moved to " + rc.getLocation() + " to refine soup!"); 
+		else if (tryMove(heading)) 
+        	System.out.println("I moved " + heading + "!");	
+       	else {
+			heading = randomDirection();
+            System.out.println("Heading changed to " + heading);
+        }
 
         System.out.println("Goodnight");
     }
