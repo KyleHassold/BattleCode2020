@@ -40,6 +40,8 @@ public abstract class Robot {
 	MapLocation[] refs = new MapLocation[2];
 	MapLocation desSch;
 	MapLocation vaporator;
+	int mapH;
+	int mapW;
 	int phase = 1;
 
 	protected Robot(RobotController rc) {
@@ -52,6 +54,8 @@ public abstract class Robot {
 		directions.add(Direction.SOUTHWEST);
 		directions.add(Direction.WEST);
 		directions.add(Direction.NORTHWEST);
+		mapH = rc.getMapHeight();
+		mapW = rc.getMapWidth();
 	}
 
 	protected abstract void run() throws GameActionException;

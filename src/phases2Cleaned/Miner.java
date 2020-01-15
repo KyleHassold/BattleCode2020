@@ -39,24 +39,21 @@ public class Miner extends Unit {
 	private void runSearcher() throws GameActionException {
 		System.out.println("I'm a Searcher!");
 		checkTransactions(); // Always check transactions when round starts for most updated data
+		bestRefLoc = target;
 		
 		while(HQs[1] == null && !rc.canSenseLocation(target)) {
 			moveCloser(target, true);
 			
-			HashMap<MapLocation, int[]> sensed = newSensor();
-			map.putAll(sensed);
+			HashMap<MapLocation, Integer> sensed = newSensor();
 			for(MapLocation loc : sensed.keySet()) {
-				if(sensed.get(loc)[2] != 0) {
-					soup.put(loc, sensed.get(loc)[2]);
-					if(refs[1] != null && rc.canSubmitTransaction(new int[] {117290, loc.x, loc.y, sensed.get(loc)[2]}, 1)) {
-						rc.submitTransaction(new int[] {117290, loc.x, loc.y, sensed.get(loc)[2]}, 1);
-					}
-					int potScore = getRefineryScore(target, loc, soup.get(loc));
-					System.out.println(potScore);
-					if(getRSquared(HQs[0], loc) > RobotType.REFINERY.pollutionRadiusSquared * 2 && potScore > bestRefScore) {
-						bestRefLoc = loc;
-						bestRefScore = potScore;
-					}
+				if(refs[1] != null && rc.canSubmitTransaction(new int[] {117290, loc.x, loc.y, sensed.get(loc)}, 1)) {
+					rc.submitTransaction(new int[] {117290, loc.x, loc.y, sensed.get(loc)}, 1);
+				}
+				
+				int potScore = getRefineryScore(target, loc, soup.get(loc));
+				if(getRSquared(HQs[0], loc) > RobotType.REFINERY.pollutionRadiusSquared * 2 && potScore > bestRefScore) {
+					bestRefLoc = loc;
+					bestRefScore = potScore;
 				}
 			}
 			
@@ -89,22 +86,20 @@ public class Miner extends Unit {
 				moveCloser(HQs[1], true);
 			}
 			
-			HashMap<MapLocation, int[]> sensed = newSensor();
-			map.putAll(sensed);
+			HashMap<MapLocation, Integer> sensed = newSensor();
 			for(MapLocation loc : sensed.keySet()) {
-				if(sensed.get(loc)[2] != 0) {
-					soup.put(loc, sensed.get(loc)[2]);
-					if(refs[1] != null && rc.canSubmitTransaction(new int[] {117290, loc.x, loc.y, sensed.get(loc)[2]}, 1)) {
-						rc.submitTransaction(new int[] {117290, loc.x, loc.y, sensed.get(loc)[2]}, 1);
-					}
-					int potScore = getRefineryScore(target, loc, soup.get(loc));
-					System.out.println(potScore);
-					if(getRSquared(HQs[0], loc) > RobotType.REFINERY.pollutionRadiusSquared * 2 && potScore > bestRefScore) {
-						bestRefLoc = loc;
-						bestRefScore = potScore;
-					}
+				if(refs[1] != null && rc.canSubmitTransaction(new int[] {117290, loc.x, loc.y, sensed.get(loc)}, 1)) {
+					rc.submitTransaction(new int[] {117290, loc.x, loc.y, sensed.get(loc)}, 1);
+				}
+				
+				int potScore = getRefineryScore(target, loc, soup.get(loc));
+				if(getRSquared(HQs[0], loc) > RobotType.REFINERY.pollutionRadiusSquared * 2 && potScore > bestRefScore) {
+					bestRefLoc = loc;
+					bestRefScore = potScore;
 				}
 			}
+			
+			Clock.yield();
 		}
 		
 		while(getRSquared(rc.getLocation(), bestRefLoc) > 2) {
@@ -118,7 +113,7 @@ public class Miner extends Unit {
 			
 			if(rc.getTeamSoup() >= 210 && buildRobot(RobotType.REFINERY, Direction.NORTH)) {
 				MapLocation loc = new MapLocation(rc.getLocation().x, rc.getLocation().y + 1);
-				map.put(loc, new int[] {0, map.get(loc)[1], map.get(loc)[2], 2});
+				map.put(loc, new int[] {0, 0, 0, 2});
 				if(rc.canSubmitTransaction(new int[] {22, loc.x, loc.y}, 10)) {
 					rc.submitTransaction(new int[] {22, loc.x, loc.y}, 10);
 				}
@@ -138,30 +133,30 @@ public class Miner extends Unit {
 		System.out.println("I'm a Miner");
 		target = null;
 		while(!build || refs[1] == null) {
-			target = getSoup();
+			getSoup();
 			returnSoup();
 		}
 		
 		buildDesSch();
 		
 		while(desSch == null) {
-			target = getSoup();
+			getSoup();
 			returnSoup();
 		}
 		
 		buildVap();
 		
 		while(true) {
-			target = getSoup();
+			getSoup();
 			returnSoup();
 		}
 	}
 
 	// Aux
 	
-	private MapLocation getSoup() throws GameActionException {
-		System.out.println("Soup target: " + target);
-		while(true) {
+	private void getSoup() throws GameActionException {
+		//System.out.println("Soup target: " + target);
+		while(target == null || !rc.canSenseLocation(target)) {
 			checkTransactions();
 			loc = rc.getLocation();
 			
@@ -179,25 +174,21 @@ public class Miner extends Unit {
 					if(rc.senseSoup(loc) == 0) {
 						soup.remove(loc);
 						map.put(loc, new int[] {rc.senseFlooding(loc) ? 1 : 0, rc.senseElevation(loc), 0, 0});
-						return null;
-					} else {
-						return target;
+						target = null;
 					}
 				}
 			} else {
 				moveCloser(target, false);
 			}
 			
-			HashMap<MapLocation, int[]> sensed = newSensor();
-			map.putAll(sensed);
-			for(MapLocation s : sensed.keySet()) {
-				if(sensed.get(s)[2] != 0) {
-					soup.put(s, sensed.get(s)[2]);
-				}
+			HashMap<MapLocation, Integer> newSoup = newSensor();
+			if(!newSoup.isEmpty() && (target == null || !rc.canSenseLocation(target))) {
+				target = newSoup.keySet().toArray(new MapLocation[0])[0];
 			}
 			
 			Clock.yield();
 		}
+		
 	}
 
 	private void returnSoup() throws GameActionException {
@@ -205,7 +196,7 @@ public class Miner extends Unit {
 		while(ref == null) {
 			checkTransactions();
 			moveCloser(closestRef(), false);
-			System.out.println("Closest Refinery: " + closestRef());
+			//System.out.println("Closest Refinery: " + closestRef());
 			ref = findAdjacentRobot(RobotType.REFINERY, rc.getTeam());
 			Clock.yield();
 		}

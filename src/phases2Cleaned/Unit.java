@@ -8,43 +8,147 @@ public abstract class Unit extends Robot {
 	int[][][] minerNewSense = {{{3, -5},{5, 3},{4, -4},{5, 1},{5, -1},{3, 5},{5, -3},{5, 2},{4, 4},{5, 0},{5, -2}},
 			{{-3, 5},{2, 5},{5, 2},{4, 4},{5, -2},{0, 5},{5, 1},{4, 3},{-2, 5},{3, 5},{5, -3},{1, 5},{5, 0},{3, 4},{5, 3},{-1, 5},{5, -1}}};
 	Direction prevSpot;
+	MapLocation prevLoc = new MapLocation(-30, -30);
+	int prevRadius = 0;
 
 	protected Unit(RobotController rc) {
 		super(rc);
 	}
 	
 	// Sensing
-	protected HashMap<MapLocation, int[]> newSensor() throws GameActionException {
-		HashMap<MapLocation, int[]> results = new HashMap<MapLocation, int[]>();
-		Direction moveDir = directions.get((directions.indexOf(prevSpot) + 4) % 8);
-		MapLocation loc = rc.getLocation();
-		MapLocation curr;
-		int genDir;
-
-		if(moveDir == Direction.NORTH || moveDir == Direction.EAST || moveDir == Direction.SOUTH || moveDir == Direction.WEST) {
-			genDir = 0;
+	protected HashMap<MapLocation, Integer> newSensor() throws GameActionException {
+		System.out.println("Sense");
+		HashMap<MapLocation, Integer> results = new HashMap<MapLocation, Integer>();
+		int currRadius = rc.getCurrentSensorRadiusSquared();
+		
+		if(currRadius <= prevRadius && prevSpot != null) {
+			Direction prevMove = directions.get((directions.indexOf(prevSpot) + 4) % 8);
+			if(prevMove == Direction.EAST || prevMove == Direction.WEST) {
+				results = senseHor(prevMove.dx, currRadius);
+			} else if(prevMove == Direction.NORTH || prevMove == Direction.SOUTH) {
+				results = senseVir(prevMove.dy, currRadius);
+			} else {
+				results = senseDia(prevMove.dx, prevMove.dy, currRadius);
+			}
 		} else {
-			genDir = 1;
+			MapLocation loc = rc.getLocation();
+			for(int x = Math.max(loc.x - (int) Math.pow(currRadius, 0.5), 0); x <= Math.min(loc.x + (int) Math.pow(currRadius, 0.5), mapW); x++) {
+				for(int y = Math.max(loc.y - (int) (Math.pow(currRadius - Math.pow(loc.x - x, 2), 0.5)), 0); y <= Math.min(loc.y + (int) (Math.pow(currRadius - Math.pow(loc.x - x, 2), 0.5)), mapH); y++) {
+					rc.setIndicatorDot(new MapLocation(x, y), 0, 255, 255);
+					if(prevRadius < Math.pow(prevLoc.x - x, 2) + Math.pow(prevLoc.y - y, 2)) {
+						MapLocation senseSpot = new MapLocation(x, y);
+						if(!map.containsKey(senseSpot) && rc.canSenseLocation(senseSpot)) {
+							rc.setIndicatorDot(senseSpot, 255, 0, 0);
+							int soupAmount = rc.senseSoup(senseSpot);
+							map.put(senseSpot, new int[] {});
+							if(soupAmount > 0 || (soupAmount == 0 && soup.get(senseSpot) != null)) {
+								System.out.println("Found Soup");
+								soup.put(senseSpot, soupAmount);
+								results.put(senseSpot, soupAmount);
+							}
+						}
+					}
+				}
+			}
 		}
-		for(int[] coords : minerNewSense[genDir]) {
-			int dx = 0;
-			int dy = 0;
-			if(moveDir.dx == -1) {
-				dx = -1 * coords[0];
-			} else {
-				dx = coords[0];
+		System.out.println("Finished Sensing");
+		prevRadius = currRadius;
+		
+		return results;
+	}
+
+	private HashMap<MapLocation, Integer> senseHor(int dx, int currRadius) throws GameActionException {
+		HashMap<MapLocation, Integer> results = new HashMap<MapLocation, Integer>();
+		MapLocation loc = rc.getLocation();
+		for(int y = Math.max(loc.y - (int) Math.pow(currRadius, 0.5), 0); y <= Math.min(loc.y + (int) Math.pow(currRadius, 0.5), mapH); y++) {
+			int x = Math.max(loc.x + ((int) (Math.pow(currRadius - Math.pow(loc.y - y, 2), 0.5)) * dx), 0);
+			rc.setIndicatorDot(new MapLocation(x, y), 0, 255, 255);
+			if(prevRadius < Math.pow(prevLoc.x - x, 2) + Math.pow(prevLoc.y - y, 2)) {
+				MapLocation senseSpot = new MapLocation(x, y);
+				if(!map.containsKey(senseSpot) && rc.canSenseLocation(senseSpot)) {
+					rc.setIndicatorDot(senseSpot, 255, 0, 0);
+					int soupAmount = rc.senseSoup(senseSpot);
+					map.put(senseSpot, new int[] {});
+					if(soupAmount > 0 || (soupAmount == 0 && soup.get(senseSpot) != null)) {
+						System.out.println("Found Soup");
+						soup.put(senseSpot, soupAmount);
+						results.put(senseSpot, soupAmount);
+					}
+				}
 			}
-			if(moveDir.dy == -1) {
-				dy = -1 * coords[1];
-			} else {
-				dy = coords[1];
-			}
-			curr = new MapLocation(loc.x + dx, loc.y + dy);
-			if(rc.canSenseLocation(curr)) {
-				results.put(curr, new int[] {rc.senseFlooding(curr) ? 1 : 0, rc.senseElevation(curr), rc.senseSoup(curr)});
+		}
+		
+		return results;
+	}
+
+	private HashMap<MapLocation, Integer> senseVir(int dy, int currRadius) throws GameActionException {
+		HashMap<MapLocation, Integer> results = new HashMap<MapLocation, Integer>();
+		MapLocation loc = rc.getLocation();
+		for(int x = Math.max(loc.x - (int) Math.pow(currRadius, 0.5), 0); x <= Math.min(loc.x + (int) Math.pow(currRadius, 0.5), mapW); x++) {
+			int y = Math.max(loc.y + ((int) (Math.pow(currRadius - Math.pow(loc.x - x, 2), 0.5)) * dy), 0);
+			rc.setIndicatorDot(new MapLocation(x, y), 0, 255, 255);
+			if(prevRadius < Math.pow(prevLoc.x - x, 2) + Math.pow(prevLoc.y - y, 2)) {
+				MapLocation senseSpot = new MapLocation(x, y);
+				if(!map.containsKey(senseSpot) && rc.canSenseLocation(senseSpot)) {
+					rc.setIndicatorDot(senseSpot, 255, 0, 0);
+					int soupAmount = rc.senseSoup(senseSpot);
+					map.put(senseSpot, new int[] {});
+					if(soupAmount > 0 || (soupAmount == 0 && soup.get(senseSpot) != null)) {
+						System.out.println("Found Soup");
+						soup.put(senseSpot, soupAmount);
+						results.put(senseSpot, soupAmount);
+					}
+				}
 			}
 		}
 
+		return results;
+	}
+
+	private HashMap<MapLocation, Integer> senseDia(int dx, int dy, int currRadius) throws GameActionException {
+		HashMap<MapLocation, Integer> results = new HashMap<MapLocation, Integer>();
+		MapLocation loc = rc.getLocation();
+		
+		for(int x = Math.max(loc.x - (int) Math.pow(currRadius, 0.5), 0); x <= Math.min(loc.x + (int) Math.pow(currRadius, 0.5), mapW); x++) {
+			int y = Math.max(loc.y + ((int) (Math.pow(currRadius - Math.pow(loc.x - x, 2), 0.5)) * dy), 0);
+			rc.setIndicatorDot(new MapLocation(x, y), 0, 255, 255);
+			if(prevRadius < Math.pow(prevLoc.x - x, 2) + Math.pow(prevLoc.y - y, 2)) {
+				MapLocation senseSpot = new MapLocation(x, y);
+				if(!map.containsKey(senseSpot) && rc.canSenseLocation(senseSpot)) {
+					rc.setIndicatorDot(senseSpot, 255, 0, 0);
+					int soupAmount = rc.senseSoup(senseSpot);
+					map.put(senseSpot, new int[] {});
+					if(soupAmount > 0 || (soupAmount == 0 && soup.get(senseSpot) != null)) {
+						System.out.println("Found Soup");
+						soup.put(senseSpot, soupAmount);
+						results.put(senseSpot, soupAmount);
+					}
+				}
+			}
+		}
+		
+		int x = loc.x + ((int) (Math.pow(currRadius, 0.5)) * dx);
+		if(x < 0 || x > mapW - 1) {
+			return results;
+		}
+		int dyMax = (int) (Math.pow(currRadius - Math.pow(loc.x - x, 2), 0.5));
+		for(int y = loc.y - dyMax; y <= loc.y + dyMax; y++) {
+			rc.setIndicatorDot(new MapLocation(x, y), 0, 255, 255);
+			if(prevRadius < Math.pow(prevLoc.x - x, 2) + Math.pow(prevLoc.y - y, 2)) {
+				MapLocation senseSpot = new MapLocation(x, y);
+				if(!map.containsKey(senseSpot) && rc.canSenseLocation(senseSpot)) {
+					rc.setIndicatorDot(senseSpot, 255, 0, 0);
+					int soupAmount = rc.senseSoup(senseSpot);
+					map.put(senseSpot, new int[] {});
+					if(soupAmount > 0 || (soupAmount == 0 && soup.get(senseSpot) != null)) {
+						System.out.println("Found Soup");
+						soup.put(senseSpot, soupAmount);
+						results.put(senseSpot, soupAmount);
+					}
+				}
+			}
+		}
+		
 		return results;
 	}
 
@@ -64,6 +168,7 @@ public abstract class Unit extends Robot {
 		for(int dDir : baseMove) {
 			moveDir = directions.get((dir + dDir + 8) % 8);
 			if(canMoveComplete(moveDir, avoidWalls)) {
+				prevLoc = rc.getLocation();
 				rc.move(moveDir);
 				prevSpot = directions.get((dir + dDir + 4) % 8);
 				return true;
@@ -78,6 +183,7 @@ public abstract class Unit extends Robot {
 		while(rc.isReady() && count < 16) {
 			rand = directions.get((int) (Math.random() * directions.size()));
 			if(canMoveComplete(rand, true)) {
+				prevLoc = rc.getLocation();
 				rc.move(rand);
 				prevSpot = directions.get((directions.indexOf(rand) + 4) % 8);
 				return true;
