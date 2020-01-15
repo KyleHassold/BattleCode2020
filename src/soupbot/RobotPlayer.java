@@ -1,6 +1,6 @@
 package soupbot;
 import battlecode.common.*;
-
+import java.util.ArrayList;
 public strictfp class RobotPlayer {
     static RobotController rc;
     static MapLocation spawn;
@@ -10,7 +10,7 @@ public strictfp class RobotPlayer {
 
     static Direction[] directions = {
         Direction.NORTH,
-        //Direction.NORTHEAST,
+        Direction.NORTHEAST,
         Direction.EAST,
         Direction.SOUTHEAST,
         Direction.SOUTH,
@@ -34,8 +34,7 @@ public strictfp class RobotPlayer {
         // and to get information on its current status.
         RobotPlayer.rc = rc;
         RobotPlayer.spawn = rc.getLocation();
-        heading = randomDirection();
-        while(heading == Direction.NORTHEAST) heading = randomDirection();
+        heading = randomValidDirection();
         turnCount = 0;
 
         System.out.println("I'm a " + rc.getType() + " and I just got created! Heading " + heading);
@@ -77,12 +76,12 @@ public strictfp class RobotPlayer {
         System.out.println("Hello World From HQ\nOrigin:" + spawn + "\nTeam Soup: " + rc.getTeamSoup());
         
         for (Direction dir : directions) 
-            if (miners < 4 && tryBuild(RobotType.MINER, dir))
+            if (miners < 8 && tryBuild(RobotType.MINER, dir))
                System.out.println("Built Miner " + ++miners + " in " + dir);
     }
 
     static void runMiner() throws GameActionException {
-        System.out.println("Hello World From Miner\nOrigin:" + spawn + "\nHeading " + heading);
+        System.out.println("Hello World From Miner\nOrigin:" + spawn + "\nHeading " + heading + "\nSoup: " + rc.getSoupCarrying());
         
         boolean mining = false;
         for (Direction dir : directions)
@@ -101,19 +100,22 @@ public strictfp class RobotPlayer {
         if (mining) return; //Don't move if mining soup
 
         int soup = rc.getSoupCarrying();
-        
-		if (soup == 0 && tryMove(findPath(findSoup())))
+        if (safeMove())
+            System.out.println("I moved to " + rc.getLocation() + " to find safety!"); 
+		if (soup == 0 && tryMove(findPath(findSoup()))) //Move Towards Soup
             System.out.println("I moved to " + rc.getLocation() + " to find soup!");
-        else if (soup > 0 && tryMove(findPath(spawn)))
+        else if (soup > 0 && tryMove(findPath(spawn))) //Move Towards Refinery
 			System.out.println("I moved to " + rc.getLocation() + " to refine soup!"); 
-		else if (tryMove(heading)) 
+		else if (tryMove(heading)) //Move in random heading
         	System.out.println("I moved " + heading + "!");	
-       	else {
-			heading = randomDirection();
+       	else { //Change Heading
+			heading = randomValidDirection();
             System.out.println("Heading changed to " + heading);
-        }
+        	if (tryMove(heading)) 
+        		System.out.println("I moved " + heading + "!");	
+		}
 
-        System.out.println("Goodnight");
+        System.out.println("Goodbye From Miner");
     }
 
     static void runRefinery() throws GameActionException {
@@ -163,6 +165,17 @@ public strictfp class RobotPlayer {
      *
      * @return a random Direction
      */
+    static Direction randomValidDirection() {
+    	ArrayList<Direction> list = new ArrayList<Direction>();
+        for (Direction dir : directions) 
+			if (rc.canMove(dir)) list.add(dir);  
+		
+ 		if (list.isEmpty()) {
+			System.out.println("Oh no I am stuck"); 
+			return randomDirection();
+		} else
+			return list.get((int) (Math.random() * list.size()));	
+    }
     static Direction randomDirection() {
         return directions[(int) (Math.random() * directions.length)];
     }
@@ -282,5 +295,19 @@ public strictfp class RobotPlayer {
 			}
 		return loc.add(heading);         
 	}
-
+	
+	static boolean safeMove() throws GameActionException {
+		MapLocation loc = rc.getLocation();
+		for (Direction dir : directions) { 
+			MapLocation search = loc.add(dir);
+			if (rc.canSenseLocation(search) && rc.senseFlooding(search)) {
+				Direction mov = dir.opposite();
+				heading = mov;
+				if (tryMove(mov)) return true;
+				else if (tryMove(mov.rotateLeft())) return true;
+				else if (tryMove(mov.rotateRight())) return true;
+			} 
+		}
+		return false;
+	}
 }
