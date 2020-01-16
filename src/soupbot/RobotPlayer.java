@@ -74,16 +74,26 @@ public strictfp class RobotPlayer {
 
     static void runHQ() throws GameActionException {
         System.out.println("Hello World From HQ\nOrigin:" + spawn + "\nTeam Soup: " + rc.getTeamSoup());
-        
+    
+		shootDrone();
+    
         for (Direction dir : directions) 
             if (miners < 8 && tryBuild(RobotType.MINER, dir))
                System.out.println("Built Miner " + ++miners + " in " + dir);
+
+		System.out.println("Goodnight From HQ");
     }
 
     static void runMiner() throws GameActionException {
         System.out.println("Hello World From Miner\nOrigin:" + spawn + "\nHeading " + heading + "\nSoup: " + rc.getSoupCarrying());
         
-        boolean mining = false;
+		boolean safety = false;
+		if (safeMove()){
+            System.out.println("I moved to " + rc.getLocation() + " to find safety!"); 
+        	safety = true;
+		}
+
+		boolean mining = false;
         for (Direction dir : directions)
            if (tryMine(dir)) {
               System.out.println("I mined soup! " + rc.getSoupCarrying());
@@ -97,12 +107,10 @@ public strictfp class RobotPlayer {
 				refining = true;
         	}
 
-        if (mining) return; //Don't move if mining soup
-
         int soup = rc.getSoupCarrying();
+		
+		if (mining || safety || refining); //Equivalent to !isReady
 
-        if (safeMove())
-            System.out.println("I moved to " + rc.getLocation() + " to find safety!"); 
 		else if (soup == 0 && tryMove(findPath(findSoup()))) //Move Towards Soup
             System.out.println("I moved to " + rc.getLocation() + " to find soup!");
         else if (soup > 0 && tryMove(findPath(spawn))) //Move Towards Refinery
@@ -116,7 +124,7 @@ public strictfp class RobotPlayer {
         		System.out.println("I moved " + heading + "!");	
 		}
 
-        System.out.println("Goodbye From Miner");
+        System.out.println("Goodnight From Miner");
     }
 
     static void runRefinery() throws GameActionException {
@@ -161,6 +169,13 @@ public strictfp class RobotPlayer {
 
     }
 
+	static void shootDrone() throws GameActionException {
+		RobotInfo[] info = rc.senseNearbyRobots();
+		Team opp = rc.getTeam().opponent();
+		for (RobotInfo rob : info)
+			if (rob.getTeam() == opp && rob.getType() == RobotType.DELIVERY_DRONE && tryShoot(rob.getID()))
+				System.out.println("Shot Enemy Drone " + rob.getID() + "!");
+	}
     /**
      * Returns a random Direction.
      *
@@ -277,6 +292,13 @@ public strictfp class RobotPlayer {
         // System.out.println(rc.getRoundMessages(turnCount-1));
     }
 
+	static boolean tryShoot(int id) throws GameActionException {
+		if (rc.isReady() && rc.canShootUnit(id)) {
+			rc.shootUnit(id);
+			return true;
+		} return false;
+	}
+
     static Direction findPath(MapLocation dest) throws GameActionException {	
     	Direction opt = rc.getLocation().directionTo(dest);
 		if (rc.canMove(opt)) return opt;
@@ -286,18 +308,21 @@ public strictfp class RobotPlayer {
 	}
 
 	static MapLocation findSoup() throws GameActionException {
-		int rs = rc.getCurrentSensorRadiusSquared();
-        int r = (int) Math.sqrt(rs);
         MapLocation loc = rc.getLocation();
-        for (int i = -r; i < r; i++)
-        	for (int j = -r; j < r; j++) {
-				MapLocation search = loc.translate(i,j);
-                if (rc.canSenseLocation(search) && rc.senseSoup(search) > 0) { 
-					System.out.println("Soup Found At " + search + "!");
-					return search;
-				}				
+		MapLocation[] locs = rc.senseNearbySoup();
+		if (locs.length == 0)
+			return loc.add(heading);         
+		
+		MapLocation close = locs[0];
+		int dist = loc.distanceSquaredTo(close);
+		for (int i = 1; i < locs.length; i++) {
+			int temp = loc.distanceSquaredTo(locs[i]); 
+			if (temp < dist) {
+				close = locs[i];
+				dist = temp;
 			}
-		return loc.add(heading);         
+		}
+		return close;
 	}
 	
 	static boolean safeMove() throws GameActionException {
