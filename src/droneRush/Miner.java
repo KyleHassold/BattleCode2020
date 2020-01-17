@@ -17,21 +17,27 @@ public class Miner extends Unit {
 
 	@Override
 	protected void run() throws GameActionException {
+		// Sense for initial soup
 		MapLocation[] newSoup = rc.senseNearbySoup();
 		Collections.addAll(soup, newSoup);
 		for(MapLocation s : newSoup) {
 			map.put(s, new int[] {0, 0, rc.senseSoup(s), 0});
 		}
+		
+		// Get initial target if any soup was found
 		if(!soup.isEmpty()) {
 			target = soup.first();
 			rc.setIndicatorDot(target, 255, 0, 0);
 		}
-
+		
+		// Find, mine, and refine soup forever
 		while(true) {
 			try {
+				// Find and mine soup until full
 				while(rc.getSoupCarrying() < RobotType.MINER.soupLimit) {
 					getSoup();
 				}
+				// Return soup to HQ
 				returnSoup();
 			} catch(GameActionException e) {
                 System.out.println(rc.getType() + " Exception");
@@ -42,13 +48,18 @@ public class Miner extends Unit {
 	}
 	
 	private void getSoup() throws GameActionException {
-		int giveUp = 0;
-		boolean hasBeenRandom = target == null && soup.isEmpty();
+		int giveUp = 0; // So they stop going after the same soup if they can reach it
+		boolean hasBeenRandom = target == null && soup.isEmpty(); // If they find new soup for potentially everyone
+		
+		// While not in range of soup
 		while(target == null || !rc.canSenseLocation(target)) {
 			checkTransactions();
+			// If targeting can be done
 			if(target == null && !soup.isEmpty()) {
 				target = soup.first();
 				giveUp = 0;
+				
+				// If this is potentially new soup for everyone
 				if(hasBeenRandom) {
 					int[] message = new int[7];
 					message[0] = 117290;
@@ -61,16 +72,18 @@ public class Miner extends Unit {
 				}
 			}
 			
+			// If youre still trying to reach the soup, move closer
 			if(target != null && giveUp < 20) {
 				rc.setIndicatorDot(target, 255, 0, 0);
 				moveCloser(target, false);
 				hasBeenRandom = false;
 			} else {
-				moveRandom();
+				moveRandom(); // Make this better
 				hasBeenRandom = true;
 			}
 			giveUp++;
-			//Collections.addAll(soup, rc.senseNearbySoup());
+			
+			// Sense for new soup
 			MapLocation[] newSoup = rc.senseNearbySoup();
 			for(MapLocation s : newSoup) {
 				if(!map.containsKey(s)) {
@@ -79,6 +92,7 @@ public class Miner extends Unit {
 				}
 			}
 			
+			// If you cant reach the soup
 			if(target != null && giveUp >= 20) {
 				rc.setIndicatorDot(target, 255, 255, 255);
 				soup.remove(target);
@@ -87,14 +101,10 @@ public class Miner extends Unit {
 			}
 			yield();
 		}
-		
-		if(rc.senseSoup(target) == 0) {
-			rc.setIndicatorDot(target, 255, 255, 255);
-			soup.remove(target);
-			target = null;
-			return;
-		}
+		// Should be in range of soup now
 		giveUp = 0;
+		
+		// Move up to soup
 		while(!loc.isAdjacentTo(target) && giveUp < 20 && rc.senseSoup(target) != 0) {
 			checkTransactions();
 			rc.setIndicatorDot(target, 0, 255, 255);
@@ -103,6 +113,7 @@ public class Miner extends Unit {
 			yield();
 		}
 		
+		// Mine the soup
 		Direction dir = getDirection(loc, target);
 		rc.setIndicatorDot(target, 255, 0, 255);
 		while(rc.canMineSoup(dir)) {
@@ -111,6 +122,7 @@ public class Miner extends Unit {
 			yield();
 		}
 		
+		// If the soup is gone (also check if soup is reachable preferably)
 		rc.setIndicatorDot(target, 255, 255, 0);
 		if(rc.senseSoup(target) == 0) {
 			rc.setIndicatorDot(target, 255, 255, 255);
@@ -120,12 +132,14 @@ public class Miner extends Unit {
 	}
 	
 	private void returnSoup() throws GameActionException {
+		// Move to HQ
 		while(!loc.isAdjacentTo(HQs[0])) {
 			checkTransactions();
 			moveCloser(HQs[0], false);
 			yield();
 		}
-
+		
+		// Deposit soup to be refined
 		checkTransactions();
 		Direction dir = getDirection(loc, HQs[0]);
 		if(rc.canDepositSoup(dir)) {

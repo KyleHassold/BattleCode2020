@@ -94,29 +94,7 @@ public abstract class Robot {
 		if(start.equals(end)) {
 			return Direction.CENTER;
 		}
-
 		return directions.get((int) (Math.atan2(end.y - start.y, end.x - start.x) / Math.PI * -4 + 10.5) % 8);
-		/* Cost varies but can be less or more rather than above which is constant
-		double angle = (Math.atan2(end.y - start.y, end.x - start.x))/Math.PI + 1;
-
-		if(angle > 15.0/8 || angle <= 1.0/8) {
-			return Direction.WEST;
-		} else if(angle > 13.0/8) {
-			return Direction.NORTHWEST;
-		} else if(angle > 11.0/8) {
-			return Direction.NORTH;
-		} else if(angle > 9.0/8) {
-			return Direction.NORTHEAST;
-		} else if(angle > 7.0/8) {
-			return Direction.EAST;
-		} else if(angle > 5.0/8) {
-			return Direction.SOUTHEAST;
-		} else if(angle > 3.0/8) {
-			return Direction.SOUTH;
-		} else {
-			return Direction.SOUTHWEST;
-		}
-		 */
 	}
 
 	protected MapLocation findAdjacentRobot(RobotType type, Team team) throws GameActionException {
@@ -182,6 +160,7 @@ public abstract class Robot {
 
 		@Override
 		public int compare(MapLocation loc1, MapLocation loc2) {
+			// Factors in robots distance to soup and soups distance to HQ
 			if(HQs[0] != null) {
 				return (loc1.distanceSquaredTo(loc) - loc2.distanceSquaredTo(loc)) + (loc1.distanceSquaredTo(HQs[0]) - loc2.distanceSquaredTo(HQs[0]));
 			}
