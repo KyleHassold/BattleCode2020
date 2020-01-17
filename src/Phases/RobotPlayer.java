@@ -49,6 +49,7 @@ public strictfp class RobotPlayer {
 	static boolean buildVap = false;
 	static Direction prevSpot;
 	static int phase = 1;
+	static int miners = 0;
 
 	public static void run(RobotController rc) throws GameActionException {
 		RobotPlayer.rc = rc;
@@ -85,9 +86,12 @@ public strictfp class RobotPlayer {
 	private static void runHQ() throws GameActionException {
 		///// Spawn in initial miners /////
 		MapLocation senseStopLoc = runHQInit();
+		miners += 3;
 
-		while(rc.getRobotCount() < 9) {
-			buildRobot(RobotType.MINER, directions.get(0));
+		while(miners < 9) {
+			if(buildRobot(RobotType.MINER, directions.get(0))) {
+				miners++;
+			}
 
 			///// Use remaining ByteCode to sense surroundings /////
 			if(senseStopLoc != new MapLocation(-1, -1)) { // If the sensing has not finished, continue where left off
@@ -139,14 +143,15 @@ public strictfp class RobotPlayer {
 
 	private static void runMiner() throws GameActionException {
 		HQs[0] = findAdjacentRobot(RobotType.HQ, null);
-
-		if(rc.getRobotCount() == 2) { // The first 3 miners are the Search Miner sub-class
+		
+		// fix miner counter
+		if(miners == 2) { // The first 3 miners are the Search Miner sub-class
 			MapLocation target = new MapLocation(rc.getMapWidth() - 1 - HQs[0].x, HQs[0].y);
 			runSearchMiner(target);
-		} else if(rc.getRobotCount() == 3) { // The first 3 miners are the Search Miner sub-class
+		} else if(miners == 3) { // The first 3 miners are the Search Miner sub-class
 			MapLocation target = new MapLocation(HQs[0].x, rc.getMapHeight() - 1 - HQs[0].y);
 			runSearchMiner(target);
-		} else if(rc.getRobotCount() == 4) { // The first 3 miners are the Search Miner sub-class
+		} else if(miners == 4) { // The first 3 miners are the Search Miner sub-class
 			MapLocation target = new MapLocation(rc.getMapWidth() - 1 - HQs[0].x, rc.getMapHeight() - 1 - HQs[0].y);
 			runSearchMiner(target);
 		}
@@ -211,7 +216,7 @@ public strictfp class RobotPlayer {
 	
 	private static void runBuilderMiner(MapLocation target, MapLocation refLoc, double score) throws GameActionException {
 		System.out.println("I'm a Builder Miner!");
-		while(rc.getRobotCount() < 9) {
+		while(miners < 9) {
 			checkTransactions();
 			
 			if(Math.random() > 0.25 || HQs[1] == null) {

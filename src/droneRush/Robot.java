@@ -1,7 +1,9 @@
-package phases2Cleaned;
+package droneRush;
 
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.HashMap;
+import java.util.TreeSet;
 
 import battlecode.common.*;
 
@@ -10,14 +12,14 @@ import battlecode.common.*;
 BLOCKCHAIN CODES:
 117290 = Soup
 117291 = HQ Location
-117292 = Mine Location
+117292 = Refinery Location
 117293 = Design School Location
 117294 = Vaporator Location
 BLOCKCHAIN PROTOCOL:
 for soup:
-    [code, x, y, amountOfSoup, -1, -1, -1]
+  [code, x, y, amountOfSoup, -1, -1, -1]
 for other stuff:
-    [code, x, y, -1, -1, -1, -1]
+  [code, x, y, -1, -1, -1, -1]
 MAP INT[]:
 	Water, Dirt, Soup, Base
 	Building:
@@ -29,22 +31,25 @@ MAP INT[]:
 		Vaporator: 4
 		Design School: 5
 		Fulfillment Center: 6
-*/
+ */
 
 public abstract class Robot {
+	// Variables for all Robots
 	RobotController rc;
 	ArrayList<Direction> directions = new ArrayList<Direction>();
 	HashMap<MapLocation, int[]> map = new HashMap<MapLocation, int[]>();
-	HashMap<MapLocation, Integer> soup = new HashMap<MapLocation, Integer>();
+	TreeSet<MapLocation> soup = new TreeSet<MapLocation>(new SoupComparator());
 	MapLocation[] HQs = new MapLocation[2];
 	MapLocation[] refs = new MapLocation[2];
 	MapLocation desSch;
 	MapLocation vaporator;
-	MapLocation senseStopLoc = new MapLocation(-2,-2);
+	MapLocation loc;
+	MapLocation center;
 	int mapH;
 	int mapW;
-	int phase = 1;
 
+
+	// Super constructor
 	protected Robot(RobotController rc) {
 		this.rc = rc;
 		directions.add(Direction.NORTH);
@@ -57,11 +62,14 @@ public abstract class Robot {
 		directions.add(Direction.NORTHWEST);
 		mapH = rc.getMapHeight();
 		mapW = rc.getMapWidth();
+		loc = rc.getLocation();
+		center = new MapLocation((mapW - 1) /2, (mapH - 1) / 2);
 	}
 
+	// Force all sub-classes to implement a run() method
 	protected abstract void run() throws GameActionException;
 
-	// Building robots
+	// Methods for all Robots
 	protected boolean buildRobot(RobotType rType, Direction prefDir) throws GameActionException {
 		if(rc.getTeamSoup() < rType.cost) {
 			return false;
@@ -81,12 +89,14 @@ public abstract class Robot {
 		return false;
 
 	}
-	
+
 	protected Direction getDirection(MapLocation start, MapLocation end) {
 		if(start.equals(end)) {
 			return Direction.CENTER;
 		}
-		
+
+		return directions.get((int) (Math.atan2(end.y - start.y, end.x - start.x) / Math.PI * -4 + 10.5) % 8);
+		/* Cost varies but can be less or more rather than above which is constant
 		double angle = (Math.atan2(end.y - start.y, end.x - start.x))/Math.PI + 1;
 
 		if(angle > 15.0/8 || angle <= 1.0/8) {
@@ -106,17 +116,14 @@ public abstract class Robot {
 		} else {
 			return Direction.SOUTHWEST;
 		}
+		 */
 	}
-	
-	protected int getRSquared(MapLocation start, MapLocation end) {
-		return (int) (Math.pow(end.x - start.x, 2) + Math.pow(end.y - start.y, 2));
-	}
-	
+
 	protected MapLocation findAdjacentRobot(RobotType type, Team team) throws GameActionException {
-		MapLocation currLoc = rc.getLocation();
 		for(Direction dir : directions) {
-			if(rc.canSenseLocation(new MapLocation(currLoc.x + dir.dx, currLoc.y + dir.dy))) {
-				RobotInfo robo = rc.senseRobotAtLocation(new MapLocation(currLoc.x + dir.dx, currLoc.y + dir.dy));
+			MapLocation adj = rc.adjacentLocation(dir);
+			if(rc.canSenseLocation(adj)) {
+				RobotInfo robo = rc.senseRobotAtLocation(adj);
 				if(robo != null && (robo.getType() == type || robo.getType() == RobotType.HQ) && (team == null || robo.getTeam() == team)) {
 					return robo.location;
 				}
@@ -125,18 +132,12 @@ public abstract class Robot {
 		return null;
 	}
 	
-	protected boolean stopProcessing(MapLocation senseLoc) {
-		if(Clock.getBytecodesLeft() < 500) {
-			senseStopLoc = new MapLocation(senseLoc.x, senseLoc.y);
-			return true;
+	protected void yield() {
+		while(rc.getCooldownTurns() >= 1) {
+			Clock.yield();
 		}
-		return false;
 	}
-	
-	protected void doneProcessing() {
-		senseStopLoc = new MapLocation(-1,-1);
-	}
-	
+
 	// Blockchain
 	protected void checkTransactions() throws GameActionException {
 		Transaction[] trans = rc.getBlock(rc.getRoundNum()-1);
@@ -147,11 +148,11 @@ public abstract class Robot {
 
 	private void analyzeTransaction(Transaction t) {
 		MapLocation loc;
-		if(t.getMessage()[0] == 21) { // HQs
+		if(t.getMessage()[0] == 117291) { // HQs
 			loc = new MapLocation(t.getMessage()[1], t.getMessage()[2]);
 			HQs[1] = loc;
 			map.put(loc, new int[] {0,0,0,-1});
-		} else if(t.getMessage()[0] == 22) { // Refinery
+		} else if(t.getMessage()[0] == 117292) { // Refinery
 			loc = new MapLocation(t.getMessage()[1], t.getMessage()[2]);
 			if(refs[0] == null) {
 				refs[0] = loc;
@@ -161,8 +162,11 @@ public abstract class Robot {
 			map.put(loc, new int[] {0,0,0,2});
 		} else if(t.getMessage()[0] == 117290) { // Soup
 			loc = new MapLocation(t.getMessage()[1], t.getMessage()[2]);
-			soup.put(loc, t.getMessage()[3]);
-			map.put(loc, new int[] {0,0,t.getMessage()[3],0});
+			if(!map.containsKey(loc)) {
+				soup.add(loc);
+				map.put(loc, new int[] {0,0,t.getMessage()[3],0});
+			}
+			System.out.println("Message Recieved!");
 		} else if(t.getMessage()[0] == 117293) { // Design School
 			loc = new MapLocation(t.getMessage()[1], t.getMessage()[2]);
 			desSch = loc;
@@ -171,6 +175,17 @@ public abstract class Robot {
 			loc = new MapLocation(t.getMessage()[1], t.getMessage()[2]);
 			vaporator = loc;
 			map.put(loc, new int[] {0,0,0,4});
+		}
+	}
+	
+	class SoupComparator implements Comparator<MapLocation>{
+
+		@Override
+		public int compare(MapLocation loc1, MapLocation loc2) {
+			if(HQs[0] != null) {
+				return (loc1.distanceSquaredTo(loc) - loc2.distanceSquaredTo(loc)) + (loc1.distanceSquaredTo(HQs[0]) - loc2.distanceSquaredTo(HQs[0]));
+			}
+			return loc1.distanceSquaredTo(loc) - loc2.distanceSquaredTo(loc);
 		}
 	}
 }

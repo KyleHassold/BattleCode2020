@@ -126,14 +126,14 @@ public strictfp class RobotPlayer {
         System.out.println("By Rasputin's beard, may the USSR reign supreme.");
 
         List<Direction> threedirs = getExplorerDirections(rc.getMapWidth()/2, rc.getMapHeight()/2);
-        if (rc.getRobotCount() < 4)
+        if (0 < 4) // Fix
         {
-            if (rc.isReady() && rc.canBuildRobot(RobotType.MINER, threedirs.get(rc.getRobotCount()-1)))
+            if (rc.isReady() && rc.canBuildRobot(RobotType.MINER, threedirs.get(1-1)))
             {
-                rc.buildRobot(RobotType.MINER, threedirs.get(rc.getRobotCount()-1));
+                rc.buildRobot(RobotType.MINER, threedirs.get(1-1));
             }
         }
-        else if (rc.getRobotCount() < 8)
+        else if (0 < 8) // fix
         {
             Random rand = new Random();
             for (Direction d : threedirs)

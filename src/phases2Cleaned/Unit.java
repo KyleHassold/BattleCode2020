@@ -5,8 +5,6 @@ import java.util.HashMap;
 import battlecode.common.*;
 
 public abstract class Unit extends Robot {
-	int[][][] minerNewSense = {{{3, -5},{5, 3},{4, -4},{5, 1},{5, -1},{3, 5},{5, -3},{5, 2},{4, 4},{5, 0},{5, -2}},
-			{{-3, 5},{2, 5},{5, 2},{4, 4},{5, -2},{0, 5},{5, 1},{4, 3},{-2, 5},{3, 5},{5, -3},{1, 5},{5, 0},{3, 4},{5, 3},{-1, 5},{5, -1}}};
 	Direction prevSpot;
 	MapLocation prevLoc = new MapLocation(-30, -30);
 	int prevRadius = 0;

@@ -15,7 +15,7 @@ public class Miner extends Unit {
 	protected Miner(RobotController rc) throws GameActionException {
 		super(rc);
 		HQs[0] = findAdjacentRobot(RobotType.HQ, null);
-		int robots = rc.getRobotCount();
+		int robots = 2; // Fix
 		if(robots == 2) {
 			target = new MapLocation(rc.getMapWidth() - 1 - HQs[0].x, HQs[0].y);
 		} else if(robots == 3) {
@@ -77,7 +77,7 @@ public class Miner extends Unit {
 	
 	private void runBuilderMiner() throws GameActionException {
 		System.out.println("I'm a Builder!");
-		while(rc.getRobotCount() < 9) {
+		while(phase == 1) {
 			checkTransactions();
 			
 			if(Math.random() > 0.25 || HQs[1] == null) {
