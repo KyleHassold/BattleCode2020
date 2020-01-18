@@ -9,11 +9,6 @@ public class Miner extends Unit {
 
 	public Miner(RobotController rc) {
 		super(rc);
-		try {
-			HQs[0] = findAdjacentRobot(RobotType.HQ, null);
-		} catch (GameActionException e) {
-			e.printStackTrace();
-		}
 
 		if(rc.getRoundNum() == 2) {
 			builder = true;
@@ -128,6 +123,16 @@ public class Miner extends Unit {
 				while(rc.getSoupCarrying() < RobotType.MINER.soupLimit) {
 					getSoup();
 				}
+				if(builder && buildRobot(RobotType.REFINERY, awayCenter)) {
+					builder = false;
+					ref = findAdjacentRobot(RobotType.REFINERY, rc.getTeam());
+					map.put(ref, new int[] {0,0,0,2});
+					int[] message = new int[] {117292, ref.x, ref.y, -1, -1, -1, -1};
+					while(!rc.canSubmitTransaction(message, 1)) {
+						yield();
+					}
+					rc.submitTransaction(message, 1);
+				}
 				// Return soup to HQ
 				returnSoup();
 			} catch(GameActionException e) {
@@ -220,14 +225,21 @@ public class Miner extends Unit {
 	}
 
 	private void returnSoup() throws GameActionException {
+		MapLocation returnTo;
+		if(ref == null) {
+			returnTo = HQs[0];
+		} else {
+			returnTo = ref;
+		}
+		
 		// Move to HQ
-		while(!loc.isAdjacentTo(HQs[0])) {
-			moveCloser(HQs[0], false);
+		while(!loc.isAdjacentTo(returnTo)) {
+			moveCloser(returnTo, false);
 			yield();
 		}
 
 		// Deposit soup to be refined
-		Direction dir = loc.directionTo(HQs[0]);
+		Direction dir = loc.directionTo(returnTo);
 		if(rc.canDepositSoup(dir)) {
 			rc.depositSoup(dir, RobotType.MINER.soupLimit);
 		} else {

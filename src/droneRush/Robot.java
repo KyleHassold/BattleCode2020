@@ -67,6 +67,15 @@ public abstract class Robot {
 		mapW = rc.getMapWidth();
 		loc = rc.getLocation();
 		center = new MapLocation((mapW - 1) /2, (mapH - 1) / 2);
+		for(RobotInfo robo : rc.senseNearbyRobots()) {
+			if(robo.type == RobotType.HQ && robo.team == rc.getTeam()) {
+				HQs[0] = robo.location;
+				break;
+			}
+		}
+		if(HQs[0] == null) {
+			System.out.println("Failed to locate HQ");
+		}
 	}
 
 	// Force all sub-classes to implement a run() method
@@ -107,6 +116,8 @@ public abstract class Robot {
 	}
 	
 	protected void yield() throws GameActionException {
+		Clock.yield();
+		checkTransactions();
 		while(rc.getCooldownTurns() >= 1) {
 			Clock.yield();
 			checkTransactions();

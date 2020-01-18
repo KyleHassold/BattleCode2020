@@ -10,14 +10,19 @@ public class DesignSchool extends Building {
 
 	@Override
 	protected void run() throws GameActionException {
+		int landscapers = 0;
+		Direction dir = loc.directionTo(HQs[0]);
 		while(true) {
 			try {
-				rc.isLocationOccupied(new MapLocation(-30,-30)); // Just to give the catch something
-				Clock.yield();
+				if(landscapers < 4 && rc.canBuildRobot(RobotType.LANDSCAPER, dir)) {
+					rc.buildRobot(RobotType.LANDSCAPER, dir);
+					landscapers++;
+				}
 			} catch(GameActionException e) {
                 System.out.println(rc.getType() + " Exception");
                 e.printStackTrace();
 			}
+			yield();
 		}
 	}
 }

@@ -14,7 +14,7 @@ public abstract class Unit extends Robot {
 	}
 
 	// Moving
-	protected boolean moveCloser(MapLocation target, boolean avoidWalls) throws GameActionException {
+	protected boolean moveCloser(MapLocation target, boolean avoid) throws GameActionException {
 		if(!rc.isReady()) {
 			return false;
 		}
@@ -28,7 +28,7 @@ public abstract class Unit extends Robot {
 		Direction moveDir;
 		for(int dDir : baseMove) {
 			moveDir = directions.get((dir + dDir + 8) % 8);
-			if(canMoveComplete(moveDir, avoidWalls)) {
+			if(canMoveComplete(moveDir, avoid, target)) {
 				rc.move(moveDir);
 				prevSpot = moveDir.opposite();
 				loc = rc.getLocation();
@@ -43,7 +43,7 @@ public abstract class Unit extends Robot {
 		List<Direction> rand = (List<Direction>) directions.clone();
 		Collections.shuffle(rand);
 		for(Direction dir : rand) {
-			if(canMoveComplete(dir, true)) {
+			if(canMoveComplete(dir, true, null)) {
 				rc.move(dir);
 				loc = rc.getLocation();
 				prevSpot = dir.opposite();
@@ -53,9 +53,13 @@ public abstract class Unit extends Robot {
 		return false;
 	}
 
-	protected boolean canMoveComplete(Direction moveDir, boolean avoidWalls) throws GameActionException {
-		return prevSpot != moveDir && rc.canMove(moveDir) && !rc.senseFlooding(rc.adjacentLocation(moveDir))
+	protected boolean canMoveComplete(Direction moveDir, boolean avoidWalls, MapLocation target) throws GameActionException {
+		if(rc.getType() != RobotType.DELIVERY_DRONE) {
+			return prevSpot != moveDir && rc.canMove(moveDir) && !rc.senseFlooding(rc.adjacentLocation(moveDir))
 				&& (!avoidWalls || avoidWalls(moveDir));
+		} else {
+			return prevSpot != moveDir && rc.canMove(moveDir) && !rc.adjacentLocation(moveDir).isWithinDistanceSquared(target, GameConstants.NET_GUN_SHOOT_RADIUS_SQUARED);
+		}
 	}
 	
 	protected boolean potFlooding(MapLocation loc) throws GameActionException {
