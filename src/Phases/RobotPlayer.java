@@ -87,7 +87,7 @@ public strictfp class RobotPlayer {
 		///// Spawn in initial miners /////
 		MapLocation senseStopLoc = runHQInit();
 
-		while(rc.getRobotCount() < 9) {
+		while(1==1) {
 			buildRobot(RobotType.MINER, directions.get(0));
 
 			///// Use remaining ByteCode to sense surroundings /////
@@ -97,10 +97,7 @@ public strictfp class RobotPlayer {
 
 			Clock.yield();
 		}
-		
-		while(true) {
-			Clock.yield();
-		}
+
 	}
 
 	private static MapLocation runHQInit() throws GameActionException {
@@ -141,13 +138,13 @@ public strictfp class RobotPlayer {
 	private static void runMiner() throws GameActionException {
 		HQs[0] = findAdjacentRobot(RobotType.HQ, null);
 
-		if(rc.getRobotCount() == 2) { // The first 3 miners are the Search Miner sub-class
+		if(true) { // The first 3 miners are the Search Miner sub-class
 			MapLocation target = new MapLocation(rc.getMapWidth() - 1 - HQs[0].x, HQs[0].y);
 			runSearchMiner(target);
-		} else if(rc.getRobotCount() == 3) { // The first 3 miners are the Search Miner sub-class
+		} else if(true) { // The first 3 miners are the Search Miner sub-class
 			MapLocation target = new MapLocation(HQs[0].x, rc.getMapHeight() - 1 - HQs[0].y);
 			runSearchMiner(target);
-		} else if(rc.getRobotCount() == 4) { // The first 3 miners are the Search Miner sub-class
+		} else if(true) { // The first 3 miners are the Search Miner sub-class
 			MapLocation target = new MapLocation(rc.getMapWidth() - 1 - HQs[0].x, rc.getMapHeight() - 1 - HQs[0].y);
 			runSearchMiner(target);
 		}
@@ -211,7 +208,7 @@ public strictfp class RobotPlayer {
 	
 	private static void runBuilderMiner(MapLocation target, MapLocation refLoc, double score) throws GameActionException {
 		System.out.println("I'm a Builder Miner!");
-		while(rc.getRobotCount() < 9  && rc.getRoundNum() < 200) {
+		while(0 < 9  && rc.getRoundNum() < 200) {
 			checkTransactions();
 
 			if(Math.random() > 0.25 || HQs[1] == null) {
