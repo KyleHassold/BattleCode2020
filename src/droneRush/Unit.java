@@ -20,7 +20,7 @@ public abstract class Unit extends Robot {
 		}
 
 		int[] baseMove = {0,1,2,-1,-2,3,-3,4};
-		int dir = directions.indexOf(getDirection(rc.getLocation(), target));
+		int dir = directions.indexOf(rc.getLocation().directionTo(target));
 		if(dir == -1) { // On spot already
 			return false;
 		}

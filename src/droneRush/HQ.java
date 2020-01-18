@@ -15,9 +15,9 @@ public class HQ extends Building {
 	@Override
 	protected void run() throws GameActionException {
 		Collections.addAll(soup, rc.senseNearbySoup());
-		Direction dir = getDirection(loc, center);
+		Direction dir = loc.directionTo(center);
 		if(!soup.isEmpty()) {
-			dir = getDirection(loc, soup.first());
+			dir = loc.directionTo(soup.first());
 		}
 		while(miners < 6) {
 			loc = rc.getLocation();
@@ -31,7 +31,6 @@ public class HQ extends Building {
 			}
 			
 			yield();
-			checkTransactions();
 		}
 		
 		Robot netGun = new NetGun(rc);

@@ -13,8 +13,10 @@ BLOCKCHAIN CODES:
 117290 = Soup
 117291 = HQ Location
 117292 = Refinery Location
-117293 = Design School Location
-117294 = Vaporator Location
+117293 = Vaporator Location
+117294 = Fulfillment Center Location
+117295 = Design School Location
+117296 = Net Gun Location
 BLOCKCHAIN PROTOCOL:
 for soup:
   [code, x, y, amountOfSoup, -1, -1, -1]
@@ -27,10 +29,10 @@ MAP INT[]:
 		Negative: Enemy
 		HQ: 1
 		Refinery: 2
-		Net Gun: 3
-		Vaporator: 4
+		Vaporator: 3
+		Fulfillment Center: 4
 		Design School: 5
-		Fulfillment Center: 6
+		Net Gun: 6
  */
 
 public abstract class Robot {
@@ -40,9 +42,10 @@ public abstract class Robot {
 	HashMap<MapLocation, int[]> map = new HashMap<MapLocation, int[]>();
 	TreeSet<MapLocation> soup = new TreeSet<MapLocation>(new SoupComparator());
 	MapLocation[] HQs = new MapLocation[2];
-	MapLocation[] refs = new MapLocation[2];
-	MapLocation desSch;
+	MapLocation ref;
 	MapLocation vaporator;
+	MapLocation fulCent;
+	MapLocation desSch;
 	MapLocation loc;
 	MapLocation center;
 	int mapH;
@@ -90,13 +93,6 @@ public abstract class Robot {
 
 	}
 
-	protected Direction getDirection(MapLocation start, MapLocation end) {
-		if(start.equals(end)) {
-			return Direction.CENTER;
-		}
-		return directions.get((int) (Math.atan2(end.y - start.y, end.x - start.x) / Math.PI * -4 + 10.5) % 8);
-	}
-
 	protected MapLocation findAdjacentRobot(RobotType type, Team team) throws GameActionException {
 		for(Direction dir : directions) {
 			MapLocation adj = rc.adjacentLocation(dir);
@@ -110,9 +106,10 @@ public abstract class Robot {
 		return null;
 	}
 	
-	protected void yield() {
+	protected void yield() throws GameActionException {
 		while(rc.getCooldownTurns() >= 1) {
 			Clock.yield();
+			checkTransactions();
 		}
 	}
 
@@ -126,33 +123,33 @@ public abstract class Robot {
 
 	private void analyzeTransaction(Transaction t) {
 		MapLocation loc;
-		if(t.getMessage()[0] == 117291) { // HQs
-			loc = new MapLocation(t.getMessage()[1], t.getMessage()[2]);
-			HQs[1] = loc;
-			map.put(loc, new int[] {0,0,0,-1});
-		} else if(t.getMessage()[0] == 117292) { // Refinery
-			loc = new MapLocation(t.getMessage()[1], t.getMessage()[2]);
-			if(refs[0] == null) {
-				refs[0] = loc;
-			} else {
-				refs[1] = loc;
-			}
-			map.put(loc, new int[] {0,0,0,2});
-		} else if(t.getMessage()[0] == 117290) { // Soup
+		if(t.getMessage()[0] == 117290) { // Soup
 			loc = new MapLocation(t.getMessage()[1], t.getMessage()[2]);
 			if(!map.containsKey(loc)) {
 				soup.add(loc);
 				map.put(loc, new int[] {0,0,t.getMessage()[3],0});
 			}
 			System.out.println("Message Recieved!");
-		} else if(t.getMessage()[0] == 117293) { // Design School
+		} else if(t.getMessage()[0] == 117291) { // HQs
 			loc = new MapLocation(t.getMessage()[1], t.getMessage()[2]);
-			desSch = loc;
-			map.put(loc, new int[] {0,0,0,5});
-		} else if(t.getMessage()[0] == 117294) { // Vaporator
+			HQs[1] = loc;
+			map.put(loc, new int[] {0,0,0,-1});
+		} else if(t.getMessage()[0] == 117292) { // Refinery
+			loc = new MapLocation(t.getMessage()[1], t.getMessage()[2]);
+			ref = loc;
+			map.put(loc, new int[] {0,0,0,2});
+		} else if(t.getMessage()[0] == 117293) { // Vaporator
+			loc = new MapLocation(t.getMessage()[1], t.getMessage()[2]);
+			vaporator = loc;
+			map.put(loc, new int[] {0,0,0,3});
+		} else if(t.getMessage()[0] == 117294) { // Fulfillment Center
 			loc = new MapLocation(t.getMessage()[1], t.getMessage()[2]);
 			vaporator = loc;
 			map.put(loc, new int[] {0,0,0,4});
+		} else if(t.getMessage()[0] == 117295) { // Design School
+			loc = new MapLocation(t.getMessage()[1], t.getMessage()[2]);
+			desSch = loc;
+			map.put(loc, new int[] {0,0,0,5});
 		}
 	}
 	
