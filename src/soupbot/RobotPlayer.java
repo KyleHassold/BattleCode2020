@@ -95,7 +95,15 @@ public strictfp class RobotPlayer {
 				if (rob.getTeam() == myTeam && rob.getType() == RobotType.MINER)
 					if (trySendMessageToRobot(rob.getID(), 2, 10))
 						break;
-		} else if ((center > 0 || miners < 6) && miners < 8)
+
+		 } else if (miners > 5 && school < 1 && rc.getTeamSoup() >= 160) {
+			Team myTeam = rc.getTeam();
+			for (RobotInfo rob : info)
+				if (rob.getTeam() == myTeam && rob.getType() == RobotType.MINER)
+					if (trySendMessageToRobot(rob.getID(), 3, 10))
+						break;
+
+		} else if (((center > 0 && school > 0) || miners < 6) &&  miners < 8)
         	for (Direction dir : directions) 
             	if (tryBuild(RobotType.MINER, dir))
                		System.out.println("Built Miner " + ++miners + " in " + dir);
@@ -106,6 +114,9 @@ public strictfp class RobotPlayer {
     static void runMiner() throws GameActionException {
         System.out.println("Hello World From Miner\nOrigin:" + spawn + "\nHeading " + heading + "\nSoup: " + rc.getSoupCarrying());
 
+		if (safeMove())
+            System.out.println("I moved to " + rc.getLocation() + " to find safety!"); 
+
 		if (build_center && rc.getTeamSoup() >= 160) 
 			for (Direction dir : directions) 
 				if (tryBuild(RobotType.FULFILLMENT_CENTER, dir)) {
@@ -115,8 +126,15 @@ public strictfp class RobotPlayer {
 						System.out.println("ERROR: Could Not Notify Team");	
 				}
 
-		if (safeMove())
-            System.out.println("I moved to " + rc.getLocation() + " to find safety!"); 
+
+		if (build_school && rc.getTeamSoup() >= 160) 
+			for (Direction dir : directions) 
+				if (tryBuild(RobotType.DESIGN_SCHOOL, dir)) {
+					System.out.println("Built Design School in " + dir); 			
+		        	build_school = false;
+ 					if (!trySendSignal(3, 10)) 
+						System.out.println("ERROR: Could Not Notify Team");	
+				}
 
         for (Direction dir : directions)
            if (tryMine(dir))
@@ -155,7 +173,8 @@ public strictfp class RobotPlayer {
     }
 
     static void runDesignSchool() throws GameActionException {
-
+        for (Direction dir : directions)
+            tryBuild(RobotType.LANDSCAPER, dir);
     }
 
     static void runFulfillmentCenter() throws GameActionException {
@@ -327,6 +346,7 @@ public strictfp class RobotPlayer {
 					if (mess[2] == rc.getID()) {
 						System.out.println("Received Message " + mess[3]);
 						if (mess[3] == 2) build_center = true;
+						if (mess[3] == 3) build_school = true;
 					}
 					break; 
 				case 1: //Found HQ
