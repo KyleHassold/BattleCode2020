@@ -42,6 +42,7 @@ public class Miner extends Unit {
 				// Find and mine soup until full
 				while(rc.getSoupCarrying() < RobotType.MINER.soupLimit) {
 					getSoup();
+					yield();
 				}
 				// Return soup to HQ
 				returnSoup();
@@ -66,12 +67,13 @@ public class Miner extends Unit {
 			yield();
 		}
 		
-		if(rc.canBuildRobot(RobotType.FULFILLMENT_CENTER, loc.directionTo(buildSpot))) {
-			rc.buildRobot(RobotType.FULFILLMENT_CENTER, loc.directionTo(buildSpot));
-			int[] message = new int[] {117294, buildSpot.x, buildSpot.y, -1, -1, -1, -1};
-			if(rc.canSubmitTransaction(message, 10)) {
-				rc.submitTransaction(message, 10);
-			}
+		while(!rc.canBuildRobot(RobotType.FULFILLMENT_CENTER, loc.directionTo(buildSpot))) {
+			yield();
+		}
+		rc.buildRobot(RobotType.FULFILLMENT_CENTER, loc.directionTo(buildSpot));
+		int[] message = new int[] {117294, buildSpot.x, buildSpot.y, -1, -1, -1, -1};
+		if(rc.canSubmitTransaction(message, 10)) {
+			rc.submitTransaction(message, 10);
 		}
 
 		// Find, mine, and refine soup forever
@@ -107,13 +109,13 @@ public class Miner extends Unit {
 			yield();
 		}
 
-		yield();
-		if(rc.canBuildRobot(RobotType.DESIGN_SCHOOL, loc.directionTo(buildSpot))) {
-			rc.buildRobot(RobotType.DESIGN_SCHOOL, loc.directionTo(buildSpot));
-			int[] message = new int[] {117295, buildSpot.x, buildSpot.y, -1, -1, -1, -1};
-			if(rc.canSubmitTransaction(message, 10)) {
-				rc.submitTransaction(message, 10);
-			}
+		while(!rc.canBuildRobot(RobotType.DESIGN_SCHOOL, loc.directionTo(buildSpot))) {
+			yield();
+		}
+		rc.buildRobot(RobotType.DESIGN_SCHOOL, loc.directionTo(buildSpot));
+		message = new int[] {117295, buildSpot.x, buildSpot.y, -1, -1, -1, -1};
+		if(rc.canSubmitTransaction(message, 10)) {
+			rc.submitTransaction(message, 10);
 		}
 
 		// Find, mine, and refine soup forever
@@ -127,7 +129,7 @@ public class Miner extends Unit {
 					builder = false;
 					ref = findAdjacentRobot(RobotType.REFINERY, rc.getTeam());
 					map.put(ref, new int[] {0,0,0,2});
-					int[] message = new int[] {117292, ref.x, ref.y, -1, -1, -1, -1};
+					message = new int[] {117292, ref.x, ref.y, -1, -1, -1, -1};
 					while(!rc.canSubmitTransaction(message, 1)) {
 						yield();
 					}
@@ -150,7 +152,9 @@ public class Miner extends Unit {
 		// While not in range of soup
 		while(target == null || !rc.canSenseLocation(target)) {
 			// If targeting can be done
+			System.out.println(target);
 			if(target == null && !soup.isEmpty()) {
+				System.out.println("New Target");
 				target = soup.first();
 				giveUp = 0;
 
@@ -166,17 +170,21 @@ public class Miner extends Unit {
 					}
 				}
 			}
+			System.out.println(target);
 
 			// If youre still trying to reach the soup, move closer
 			if(target != null && giveUp < 20) {
+				System.out.println("Moving to Target");
 				rc.setIndicatorDot(target, 255, 0, 0);
 				moveCloser(target, false);
 				hasBeenRandom = false;
 			} else {
+				System.out.println("Moving randomly");
 				moveRandom(); // Make this better
 				hasBeenRandom = true;
 			}
 			giveUp++;
+			System.out.println(target);
 
 			// Sense for new soup
 			MapLocation[] newSoup = rc.senseNearbySoup();
@@ -186,21 +194,25 @@ public class Miner extends Unit {
 					map.put(s, new int[] {0, 0, rc.senseSoup(s), 0});
 				}
 			}
+			System.out.println(target);
 
 			// If you cant reach the soup
 			if(target != null && giveUp >= 20) {
+				System.out.println("Giving up");
 				rc.setIndicatorDot(target, 255, 255, 255);
 				soup.remove(target);
 				target = null;
 				giveUp = 0;
 			}
+			System.out.println(target);
 			yield();
+			System.out.println(target);
 		}
 		// Should be in range of soup now
 		giveUp = 0;
 
 		// Move up to soup
-		while(!loc.isAdjacentTo(target) && giveUp < 20 && rc.senseSoup(target) != 0) {
+		while((!loc.equals(target) || !loc.isAdjacentTo(target)) && giveUp < 20 && rc.senseSoup(target) != 0) {
 			rc.setIndicatorDot(target, 0, 255, 255);
 			moveCloser(target, false);
 			giveUp++;
