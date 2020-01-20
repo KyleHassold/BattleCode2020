@@ -6,12 +6,15 @@ import battlecode.common.*;
 
 public class Miner extends Unit {
 	boolean builder = false;
+	RobotType[] buildings = new RobotType[] {RobotType.FULFILLMENT_CENTER, RobotType.DESIGN_SCHOOL, RobotType.REFINERY, RobotType.VAPORATOR};
+	MapLocation[] buildSpots = new MapLocation[buildings.length];
 
 	public Miner(RobotController rc) {
 		super(rc);
 
-		if(rc.getRoundNum() == 2) {
+		if(rc.getRoundNum() == 3) {
 			builder = true;
+			System.out.println("Builder");
 		}
 
 		try {
@@ -19,6 +22,23 @@ public class Miner extends Unit {
 		} catch (GameActionException e) {
 			e.printStackTrace();
 		}
+		
+		Direction awayCenter = center.directionTo(HQs[0]);
+		if(awayCenter == Direction.NORTH || awayCenter == Direction.EAST || awayCenter == Direction.SOUTH || awayCenter == Direction.WEST) {
+			awayCenter = awayCenter.rotateRight();
+		}
+		buildSpots[0] = new MapLocation(HQs[0].x + 2 * awayCenter.dx, HQs[0].y + 2 * awayCenter.dy);
+		if(awayCenter == Direction.NORTHEAST) {
+			buildSpots[1] = new MapLocation(HQs[0].x + 2 * awayCenter.dx + 1, HQs[0].y + 2 * awayCenter.dy);
+		} else if(awayCenter == Direction.SOUTHEAST) {
+			buildSpots[1] = new MapLocation(HQs[0].x + 2 * awayCenter.dx, HQs[0].y + 2 * awayCenter.dy - 1);
+		} else if(awayCenter == Direction.SOUTHWEST) {
+			buildSpots[1] = new MapLocation(HQs[0].x + 2 * awayCenter.dx - 1, HQs[0].y + 2 * awayCenter.dy);
+		} else {
+			buildSpots[1] = new MapLocation(HQs[0].x + 2 * awayCenter.dx, HQs[0].y + 2 * awayCenter.dy + 1);
+		}
+		buildSpots[2] = null;
+		buildSpots[3] = HQs[0].translate(-1, 0);
 	}
 
 	@Override
@@ -27,17 +47,20 @@ public class Miner extends Unit {
 		MapLocation[] newSoup = rc.senseNearbySoup();
 		Collections.addAll(soup, newSoup);
 		for(MapLocation s : newSoup) {
-			map.put(s, new int[] {0, 0, rc.senseSoup(s), 0});
+			if(rc.canSenseLocation(s)) {
+				map.put(s, new int[] {0, 0, rc.senseSoup(s), 0});
+			}
 		}
 
 		// Get initial target if any soup was found
 		if(!soup.isEmpty()) {
-			target = soup.first();
+			target = bestSoup();
 			rc.setIndicatorDot(target, 255, 0, 0);
 		}
-
+		
+		int buildCount = 0;
 		// Find, mine, and refine soup forever or until can build
-		while(!builder || rc.getTeamSoup() < RobotType.FULFILLMENT_CENTER.cost + 10) {
+		while(true) {
 			try {
 				// Find and mine soup until full
 				while(rc.getSoupCarrying() < RobotType.MINER.soupLimit) {
@@ -51,97 +74,13 @@ public class Miner extends Unit {
 				e.printStackTrace();
 			}
 			yield();
-		}
-		
-		System.out.println("Building!");
-
-		Direction awayCenter = center.directionTo(HQs[0]);
-		if(awayCenter == Direction.NORTH || awayCenter == Direction.EAST || awayCenter == Direction.SOUTH || awayCenter == Direction.WEST) {
-			awayCenter = awayCenter.rotateRight();
-		}
-		MapLocation buildSpot = new MapLocation(HQs[0].x + 2 * awayCenter.dx, HQs[0].y + 2 * awayCenter.dy);
-		rc.setIndicatorDot(buildSpot, 255, 0, 0);
-
-		while(!loc.isAdjacentTo(buildSpot)) {
-			moveCloser(buildSpot, false);
-			yield();
-		}
-		
-		while(!rc.canBuildRobot(RobotType.FULFILLMENT_CENTER, loc.directionTo(buildSpot))) {
-			yield();
-		}
-		rc.buildRobot(RobotType.FULFILLMENT_CENTER, loc.directionTo(buildSpot));
-		int[] message = new int[] {117294, buildSpot.x, buildSpot.y, -1, -1, -1, -1};
-		if(rc.canSubmitTransaction(message, 10)) {
-			rc.submitTransaction(message, 10);
-		}
-
-		// Find, mine, and refine soup forever
-		while(!builder || rc.getTeamSoup() < RobotType.DESIGN_SCHOOL.cost + 10) {
-			try {
-				// Find and mine soup until full
-				while(rc.getSoupCarrying() < RobotType.MINER.soupLimit) {
-					getSoup();
-				}
-				// Return soup to HQ
-				returnSoup();
-			} catch(GameActionException e) {
-				System.out.println(rc.getType() + " Exception");
-				e.printStackTrace();
+			
+			while(builder && rc.getTeamSoup() >= buildings[buildCount].cost + 10) {
+				System.out.println("Building!");
+				build(buildings[buildCount], buildSpots[buildCount]);
+				buildCount++;
+				yield();
 			}
-			yield();
-		}
-
-		System.out.println("Building!");
-		
-		if(awayCenter == Direction.NORTHEAST) {
-			buildSpot = new MapLocation(HQs[0].x + 2 * awayCenter.dx + 1, HQs[0].y + 2 * awayCenter.dy);
-		} else if(awayCenter == Direction.SOUTHEAST) {
-			buildSpot = new MapLocation(HQs[0].x + 2 * awayCenter.dx, HQs[0].y + 2 * awayCenter.dy - 1);
-		} else if(awayCenter == Direction.SOUTHWEST) {
-			buildSpot = new MapLocation(HQs[0].x + 2 * awayCenter.dx - 1, HQs[0].y + 2 * awayCenter.dy);
-		} else {
-			buildSpot = new MapLocation(HQs[0].x + 2 * awayCenter.dx, HQs[0].y + 2 * awayCenter.dy + 1);
-		}
-
-		while(!loc.isAdjacentTo(buildSpot)) {
-			moveCloser(buildSpot, false);
-			yield();
-		}
-
-		while(!rc.canBuildRobot(RobotType.DESIGN_SCHOOL, loc.directionTo(buildSpot))) {
-			yield();
-		}
-		rc.buildRobot(RobotType.DESIGN_SCHOOL, loc.directionTo(buildSpot));
-		message = new int[] {117295, buildSpot.x, buildSpot.y, -1, -1, -1, -1};
-		if(rc.canSubmitTransaction(message, 10)) {
-			rc.submitTransaction(message, 10);
-		}
-
-		// Find, mine, and refine soup forever
-		while(true) {
-			try {
-				// Find and mine soup until full
-				while(rc.getSoupCarrying() < RobotType.MINER.soupLimit) {
-					getSoup();
-				}
-				if(builder && buildRobot(RobotType.REFINERY, awayCenter)) {
-					builder = false;
-					ref = findAdjacentRobot(RobotType.REFINERY, rc.getTeam());
-					map.put(ref, new int[] {0,0,0,2});
-					message = new int[] {117292, ref.x, ref.y, -1, -1, -1, -1};
-					while(!rc.canSubmitTransaction(message, 1)) {
-						yield();
-					}
-					rc.submitTransaction(message, 1);
-				}
-				// Return soup to HQ
-				returnSoup();
-			} catch(GameActionException e) {
-				System.out.println(rc.getType() + " Exception");
-				e.printStackTrace();
-			}
-			yield();
 		}
 	}
 
@@ -152,39 +91,33 @@ public class Miner extends Unit {
 		// While not in range of soup
 		while(target == null || !rc.canSenseLocation(target)) {
 			// If targeting can be done
-			System.out.println(target);
 			if(target == null && !soup.isEmpty()) {
-				System.out.println("New Target");
-				target = soup.first();
+				target = bestSoup();
 				giveUp = 0;
 
 				// If this is potentially new soup for everyone
 				if(hasBeenRandom) {
 					int[] message = new int[7];
 					message[0] = 117290;
-					message[1] = soup.first().x;
-					message[2] = soup.first().y;
-					message[3] = map.get(soup.first())[2];
+					message[1] = target.x;
+					message[2] = target.y;
+					message[3] = map.get(target)[2];
 					if(rc.canSubmitTransaction(message, 1)) {
 						rc.submitTransaction(message, 1);
 					}
 				}
 			}
-			System.out.println(target);
 
 			// If youre still trying to reach the soup, move closer
 			if(target != null && giveUp < 20) {
-				System.out.println("Moving to Target");
 				rc.setIndicatorDot(target, 255, 0, 0);
 				moveCloser(target, false);
 				hasBeenRandom = false;
 			} else {
-				System.out.println("Moving randomly");
 				moveRandom(); // Make this better
 				hasBeenRandom = true;
 			}
 			giveUp++;
-			System.out.println(target);
 
 			// Sense for new soup
 			MapLocation[] newSoup = rc.senseNearbySoup();
@@ -194,19 +127,15 @@ public class Miner extends Unit {
 					map.put(s, new int[] {0, 0, rc.senseSoup(s), 0});
 				}
 			}
-			System.out.println(target);
 
 			// If you cant reach the soup
 			if(target != null && giveUp >= 20) {
-				System.out.println("Giving up");
 				rc.setIndicatorDot(target, 255, 255, 255);
 				soup.remove(target);
 				target = null;
 				giveUp = 0;
 			}
-			System.out.println(target);
 			yield();
-			System.out.println(target);
 		}
 		// Should be in range of soup now
 		giveUp = 0;
@@ -257,5 +186,43 @@ public class Miner extends Unit {
 		} else {
 			System.out.println("Failed to deposit soup!");
 		}
+	}
+	
+	private void build(RobotType robo, MapLocation buildSpot) throws GameActionException {
+		if(buildSpot == null) {
+			buildSpot = bestSoup();
+		}
+		while(!loc.isAdjacentTo(buildSpot)) {
+			moveCloser(buildSpot, false);
+			yield();
+		}
+		Direction dir = loc.directionTo(buildSpot);
+		while(!rc.canBuildRobot(robo, dir)) {
+			yield();
+		}
+		rc.buildRobot(robo, dir);
+		int code;
+		if(robo == RobotType.FULFILLMENT_CENTER) {
+			code = 117294;
+		} else if(robo == RobotType.DESIGN_SCHOOL) {
+			code = 117295;
+		} else if(robo == RobotType.REFINERY) {
+			code = 117292;
+		} else if(robo == RobotType.VAPORATOR) {
+			code = 117293;
+		} else {
+			code = 0;
+			System.out.println("Failed to code");
+		}
+		int[] message = new int[] {code, buildSpot.x, buildSpot.y, -1, -1, -1, -1};
+		if(rc.canSubmitTransaction(message, 10)) {
+			rc.submitTransaction(message, 10);
+		}
+	}
+	
+	private MapLocation bestSoup() {
+		orderedSoup.clear();
+		orderedSoup.addAll(soup);
+		return orderedSoup.first();
 	}
 }

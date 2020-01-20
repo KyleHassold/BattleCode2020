@@ -3,6 +3,8 @@ package droneRush;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashMap;
+import java.util.HashSet;
+import java.util.Set;
 import java.util.TreeSet;
 
 import battlecode.common.*;
@@ -40,7 +42,8 @@ public abstract class Robot {
 	RobotController rc;
 	ArrayList<Direction> directions = new ArrayList<Direction>();
 	HashMap<MapLocation, int[]> map = new HashMap<MapLocation, int[]>();
-	TreeSet<MapLocation> soup = new TreeSet<MapLocation>(new SoupComparator());
+	Set<MapLocation> soup = new HashSet<MapLocation>();
+	TreeSet<MapLocation> orderedSoup = new TreeSet<MapLocation>(new SoupComparator());
 	MapLocation[] HQs = new MapLocation[2];
 	MapLocation ref;
 	MapLocation vaporator;
@@ -126,6 +129,7 @@ public abstract class Robot {
 
 	// Blockchain
 	protected void checkTransactions() throws GameActionException {
+		System.out.println("Checking Transactions");
 		Transaction[] trans = rc.getBlock(rc.getRoundNum()-1);
 		for(Transaction t : trans) {
 			analyzeTransaction(t);
@@ -140,27 +144,32 @@ public abstract class Robot {
 				soup.add(loc);
 				map.put(loc, new int[] {0,0,t.getMessage()[3],0});
 			}
-			System.out.println("Message Recieved!");
+			System.out.println("Soup Message Recieved!");
 		} else if(t.getMessage()[0] == 117291) { // HQs
 			loc = new MapLocation(t.getMessage()[1], t.getMessage()[2]);
 			HQs[1] = loc;
 			map.put(loc, new int[] {0,0,0,-1});
+			System.out.println("HQ Message Recieved!");
 		} else if(t.getMessage()[0] == 117292) { // Refinery
 			loc = new MapLocation(t.getMessage()[1], t.getMessage()[2]);
 			ref = loc;
 			map.put(loc, new int[] {0,0,0,2});
+			System.out.println("Refinery Message Recieved!");
 		} else if(t.getMessage()[0] == 117293) { // Vaporator
 			loc = new MapLocation(t.getMessage()[1], t.getMessage()[2]);
 			vaporator = loc;
 			map.put(loc, new int[] {0,0,0,3});
+			System.out.println("Vaporator Message Recieved!");
 		} else if(t.getMessage()[0] == 117294) { // Fulfillment Center
 			loc = new MapLocation(t.getMessage()[1], t.getMessage()[2]);
 			vaporator = loc;
 			map.put(loc, new int[] {0,0,0,4});
+			System.out.println("Fulfillment Center Message Recieved!");
 		} else if(t.getMessage()[0] == 117295) { // Design School
 			loc = new MapLocation(t.getMessage()[1], t.getMessage()[2]);
 			desSch = loc;
 			map.put(loc, new int[] {0,0,0,5});
+			System.out.println("Design School Message Recieved!");
 		}
 	}
 	

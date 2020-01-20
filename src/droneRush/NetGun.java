@@ -10,9 +10,9 @@ public class NetGun extends Building {
 
 	@Override
 	protected void run() throws GameActionException {
+		checkTransactions();
 
 		while(true) {
-			checkTransactions();
 			try {
 				RobotInfo[] robots = rc.senseNearbyRobots(rc.getCurrentSensorRadiusSquared(), rc.getTeam().opponent());
 				for(RobotInfo robo : robots) {
