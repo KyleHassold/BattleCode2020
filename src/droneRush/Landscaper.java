@@ -6,13 +6,48 @@ public class Landscaper extends Unit {
 
 	public Landscaper(RobotController rc) {
 		super(rc);
+		if(HQs[0] == null) {
+			try {
+				desSch = findAdjacentRobot(RobotType.DESIGN_SCHOOL, null);
+				fulCent = findAdjacentRobot(RobotType.FULFILLMENT_CENTER, null);
+				Direction dir = desSch.directionTo(fulCent).rotateLeft();
+				HQs[0] = new MapLocation(fulCent.x + 2 * dir.dx, fulCent.y + 2 * dir.dy);
+			} catch (GameActionException e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+			}
+		}
+		for(RobotInfo robo : rc.senseNearbyRobots(rc.getCurrentSensorRadiusSquared(), rc.getTeam())) {
+			if(robo.type == RobotType.VAPORATOR) {
+				vaporator = robo.location;
+			}
+		}
 	}
 
 	@Override
 	protected void run() throws GameActionException {
 		try {
-			int spot = moveToSpot();
-			barricade(spot);
+			System.out.println("Landscaper");
+			if(vaporator == null) {
+				System.out.println("First 4");
+				int spot = moveToSpot();
+				barricade(spot);
+			} else {
+				int[] message = new int[] {117299, loc.x, loc.y, -1, -1, -1, -1};
+				while(!rc.canSubmitTransaction(message, 10)) {
+					yield();
+				}
+				rc.submitTransaction(message, 10);
+				while(loc.equals(rc.getLocation())) {
+					yield();
+				}
+				loc = rc.getLocation();
+				Direction dir = HQs[0].directionTo(loc);
+				if(rc.senseRobotAtLocation(loc.translate(dir.dx, dir.dy)) != null) {
+					dir.rotateLeft();
+				}
+				barricadeOne(dir);
+			}
 		} catch(GameActionException e) {
 			System.out.println(rc.getType() + " Exception");
 			e.printStackTrace();
@@ -29,12 +64,15 @@ public class Landscaper extends Unit {
 		while(!loc.equals(spots[currSpot])) {
 			rc.setIndicatorDot(spots[currSpot], 255, 0, 0);
 			if(!(rc.canSenseLocation(spots[currSpot]) && rc.senseRobotAtLocation(spots[currSpot]) != null && rc.senseRobotAtLocation(spots[currSpot]).type == RobotType.LANDSCAPER)) {
+				System.out.println("Move!" + rc.getCooldownTurns());
 				moveCloser(spots[currSpot], false);
+				yield();
 			} else {
+				System.out.println("Else");
 				currSpot = (currSpot + 1) % 4;
 				Clock.yield();
+				checkTransactions();
 			}
-			yield();
 		}
 		
 		return currSpot;
@@ -51,6 +89,7 @@ public class Landscaper extends Unit {
 				mineFrom = Direction.NORTHEAST;
 			} else {
 				mineFrom = Direction.SOUTH;
+				placeSpots[2] = null;
 			}
 		} else {
 			placeSpots[0] = Direction.NORTH;
@@ -65,8 +104,11 @@ public class Landscaper extends Unit {
 		
 		Direction needDirt = placeSpots[0];
 		while(true) {
+			if(placeSpots[2] == null && vaporator != null) {
+				placeSpots[2] = Direction.WEST;
+			}
 			for(Direction dir : placeSpots) {
-				if(rc.senseElevation(rc.adjacentLocation(dir)) < rc.senseElevation(rc.adjacentLocation(needDirt))) {
+				if(dir != null && rc.senseElevation(rc.adjacentLocation(dir)) < rc.senseElevation(rc.adjacentLocation(needDirt))) {
 					needDirt = dir;
 				}
 			}
@@ -79,6 +121,20 @@ public class Landscaper extends Unit {
 			while(rc.canDepositDirt(needDirt)) {
 				rc.depositDirt(needDirt);
 				yield();
+			}
+		}
+	}
+	
+	private void barricadeOne(Direction dir) throws GameActionException {
+		while(true) {
+			while(rc.getDirtCarrying() < RobotType.LANDSCAPER.dirtLimit) {
+				if(rc.canDigDirt(dir)) {
+					rc.digDirt(dir);
+				}
+				yield();
+			}
+			while(rc.canDepositDirt(Direction.CENTER)) {
+				rc.depositDirt(dir);
 			}
 		}
 	}

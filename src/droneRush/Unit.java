@@ -54,14 +54,31 @@ public abstract class Unit extends Robot {
 	}
 
 	protected boolean canMoveComplete(Direction moveDir, boolean avoidWalls, MapLocation target) throws GameActionException {
+		System.out.println(moveDir + ": " + moveAwayFromHQ(moveDir));
+		if(ref != null && rc.getType() == RobotType.MINER && !moveAwayFromHQ(moveDir)) {
+			return false;
+		}
 		if(rc.getType() != RobotType.DELIVERY_DRONE) {
 			return prevSpot != moveDir && rc.canMove(moveDir) && !rc.senseFlooding(rc.adjacentLocation(moveDir))
 				&& (!avoidWalls || avoidWalls(moveDir));
 		} else {
-			return prevSpot != moveDir && rc.canMove(moveDir) && !rc.adjacentLocation(moveDir).isWithinDistanceSquared(target, GameConstants.NET_GUN_SHOOT_RADIUS_SQUARED);
+			return prevSpot != moveDir && rc.canMove(moveDir) && (!avoidWalls || !rc.adjacentLocation(moveDir).isWithinDistanceSquared(target, GameConstants.NET_GUN_SHOOT_RADIUS_SQUARED));
 		}
 	}
 	
+	private boolean moveAwayFromHQ(Direction dir) throws GameActionException {
+		MapLocation adj = loc.translate(dir.dx, dir.dy);
+		if(rc.canSenseLocation(loc.translate(0, 1)) && rc.senseRobotAtLocation(loc.translate(0, 1)) != null && rc.senseRobotAtLocation(loc.translate(0, 1)).type == RobotType.VAPORATOR && dir == Direction.SOUTH) {
+			return true;
+		} else if(rc.canSenseLocation(loc.translate(0, 2)) && rc.senseRobotAtLocation(loc.translate(0, 2)) != null && rc.senseRobotAtLocation(loc.translate(0, 2)).type == RobotType.VAPORATOR && dir == Direction.SOUTH) {
+			return true;
+		}
+		if(adj.x <= HQs[0].x + 2 && adj.x >= HQs[0].x - 3 && adj.y <= HQs[0].y + 2 && adj.y >= HQs[0].y - 2) {
+			return false;
+		}
+		return true;
+	}
+
 	protected boolean potFlooding(MapLocation loc) throws GameActionException {
 		int round = rc.getRoundNum() + 5;
 		int waterLevel = (int) (Math.pow(Math.E, 0.0028*round - 1.38*Math.sin(0.00157*round - 1.73) + 1.38*Math.sin(-1.78)) - 1);

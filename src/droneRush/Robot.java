@@ -4,6 +4,7 @@ import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Set;
 import java.util.TreeSet;
 
@@ -43,7 +44,6 @@ public abstract class Robot {
 	ArrayList<Direction> directions = new ArrayList<Direction>();
 	HashMap<MapLocation, int[]> map = new HashMap<MapLocation, int[]>();
 	Set<MapLocation> soup = new HashSet<MapLocation>();
-	TreeSet<MapLocation> orderedSoup = new TreeSet<MapLocation>(new SoupComparator());
 	MapLocation[] HQs = new MapLocation[2];
 	MapLocation ref;
 	MapLocation vaporator;
@@ -51,6 +51,7 @@ public abstract class Robot {
 	MapLocation desSch;
 	MapLocation loc;
 	MapLocation center;
+	List<MapLocation[]> moveReqs = new ArrayList<MapLocation[]>();
 	int mapH;
 	int mapW;
 
@@ -110,12 +111,26 @@ public abstract class Robot {
 			MapLocation adj = rc.adjacentLocation(dir);
 			if(rc.canSenseLocation(adj)) {
 				RobotInfo robo = rc.senseRobotAtLocation(adj);
-				if(robo != null && (robo.getType() == type || robo.getType() == RobotType.HQ) && (team == null || robo.getTeam() == team)) {
+				if(robo != null && (robo.type == type || (robo.type == RobotType.REFINERY && robo.type == RobotType.HQ)) && (team == null || robo.team == team)) {
 					return robo.location;
 				}
 			}
 		}
 		return null;
+	}
+	
+	protected MapLocation bestSoup() {
+		MapLocation bestSoup = null;
+		int bestScore = 0;
+		for(MapLocation s : soup) {
+			int temp = loc.distanceSquaredTo(s) + s.distanceSquaredTo(ref == null ? HQs[0] : ref);
+			if(bestSoup == null || bestScore > temp) {
+				bestSoup = s;
+				bestScore = temp;
+			}
+		}
+		
+		return bestSoup;
 	}
 	
 	protected void yield() throws GameActionException {
@@ -129,7 +144,6 @@ public abstract class Robot {
 
 	// Blockchain
 	protected void checkTransactions() throws GameActionException {
-		System.out.println("Checking Transactions");
 		Transaction[] trans = rc.getBlock(rc.getRoundNum()-1);
 		for(Transaction t : trans) {
 			analyzeTransaction(t);
@@ -170,18 +184,13 @@ public abstract class Robot {
 			desSch = loc;
 			map.put(loc, new int[] {0,0,0,5});
 			System.out.println("Design School Message Recieved!");
-		}
-	}
-	
-	class SoupComparator implements Comparator<MapLocation>{
-
-		@Override
-		public int compare(MapLocation loc1, MapLocation loc2) {
-			// Factors in robots distance to soup and soups distance to HQ
-			if(HQs[0] != null) {
-				return (loc1.distanceSquaredTo(loc) - loc2.distanceSquaredTo(loc)) + (loc1.distanceSquaredTo(HQs[0]) - loc2.distanceSquaredTo(HQs[0]));
+		} else if(t.getMessage()[0] == 117299) { // Requires Movement
+			MapLocation start = new MapLocation(t.getMessage()[1], t.getMessage()[2]);
+			MapLocation end = null;
+			if(t.getMessage()[3] != -1) {
+				end = new MapLocation(t.getMessage()[3], t.getMessage()[4]);
 			}
-			return loc1.distanceSquaredTo(loc) - loc2.distanceSquaredTo(loc);
+			moveReqs.add(new MapLocation[] {start, end});
 		}
 	}
 }

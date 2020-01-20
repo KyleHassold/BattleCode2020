@@ -1,6 +1,8 @@
 package droneRush;
 
 import java.util.Collections;
+import java.util.HashSet;
+import java.util.Set;
 
 import battlecode.common.*;
 
@@ -8,6 +10,8 @@ public class Miner extends Unit {
 	boolean builder = false;
 	RobotType[] buildings = new RobotType[] {RobotType.FULFILLMENT_CENTER, RobotType.DESIGN_SCHOOL, RobotType.REFINERY, RobotType.VAPORATOR};
 	MapLocation[] buildSpots = new MapLocation[buildings.length];
+	int buildCount = 0;
+	boolean checked = false;
 
 	public Miner(RobotController rc) {
 		super(rc);
@@ -58,13 +62,25 @@ public class Miner extends Unit {
 			rc.setIndicatorDot(target, 255, 0, 0);
 		}
 		
-		int buildCount = 0;
 		// Find, mine, and refine soup forever or until can build
 		while(true) {
 			try {
 				// Find and mine soup until full
 				while(rc.getSoupCarrying() < RobotType.MINER.soupLimit) {
 					getSoup();
+					if(desSch != null && checked == false) {
+						Set<MapLocation> tempSoup = new HashSet<MapLocation>();
+						for(MapLocation s : soup) {
+							if(!(s.x <= HQs[0].x + 2 && s.x >= HQs[0].x - 3 && s.y <= HQs[0].y + 2 && s.y <= HQs[0].y - 2)) {
+								tempSoup.add(s);
+							}
+						}
+						soup = tempSoup;
+					}
+					
+					if(builder && rc.getTeamSoup() >= buildings[buildCount].cost + 10) {
+						break;
+					}
 					yield();
 				}
 				// Return soup to HQ
@@ -79,6 +95,9 @@ public class Miner extends Unit {
 				System.out.println("Building!");
 				build(buildings[buildCount], buildSpots[buildCount]);
 				buildCount++;
+				if(buildCount == 4) {
+					builder = false;
+				}
 				yield();
 			}
 		}
@@ -124,7 +143,8 @@ public class Miner extends Unit {
 			for(MapLocation s : newSoup) {
 				if(!map.containsKey(s)) {
 					soup.add(s);
-					map.put(s, new int[] {0, 0, rc.senseSoup(s), 0});
+					int soupAmount = rc.canSenseLocation(s) ? rc.senseSoup(s) : 1;
+					map.put(s, new int[] {0, 0, soupAmount, 0});
 				}
 			}
 
@@ -141,7 +161,7 @@ public class Miner extends Unit {
 		giveUp = 0;
 
 		// Move up to soup
-		while((!loc.equals(target) || !loc.isAdjacentTo(target)) && giveUp < 20 && rc.senseSoup(target) != 0) {
+		while(!(loc.equals(target) || loc.isAdjacentTo(target)) && giveUp < 20 && rc.senseSoup(target) != 0) {
 			rc.setIndicatorDot(target, 0, 255, 255);
 			moveCloser(target, false);
 			giveUp++;
@@ -192,10 +212,27 @@ public class Miner extends Unit {
 		if(buildSpot == null) {
 			buildSpot = bestSoup();
 		}
+		int count = 0;
 		while(!loc.isAdjacentTo(buildSpot)) {
 			moveCloser(buildSpot, false);
+			count++;
+			if(count > 20) {
+				int[] message = new int[] {117299, loc.x, loc.y, buildSpot.x, buildSpot.y - 1, -1, -1};
+				while(!rc.canSubmitTransaction(message, 10)) {
+					yield();
+				}
+				rc.submitTransaction(message, 10);
+				break;
+			}
 			yield();
 		}
+		
+		while(!loc.isAdjacentTo(buildSpot)) { // In case needing help from drone
+			loc = rc.getLocation();
+			System.out.println("Waiting");
+			yield();
+		}
+		
 		Direction dir = loc.directionTo(buildSpot);
 		while(!rc.canBuildRobot(robo, dir)) {
 			yield();
@@ -218,11 +255,5 @@ public class Miner extends Unit {
 		if(rc.canSubmitTransaction(message, 10)) {
 			rc.submitTransaction(message, 10);
 		}
-	}
-	
-	private MapLocation bestSoup() {
-		orderedSoup.clear();
-		orderedSoup.addAll(soup);
-		return orderedSoup.first();
 	}
 }

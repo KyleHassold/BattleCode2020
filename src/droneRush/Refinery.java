@@ -16,7 +16,7 @@ public class Refinery extends Building {
 
 		while(true) {
 			try {
-				rc.isLocationOccupied(new MapLocation(-30,-30)); // Just to give the catch something
+				rc.isLocationOccupied(loc); // Just to give the catch something
 				Clock.yield();
 			} catch(GameActionException e) {
                 System.out.println(rc.getType() + " Exception");
