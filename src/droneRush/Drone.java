@@ -117,7 +117,7 @@ public class Drone extends Unit {
 				moveCloser(new MapLocation(HQs[0].x + 3 * HQs[0].directionTo(center).dx, HQs[0].y + 3 * HQs[0].directionTo(center).dy), false);
 				RobotInfo[] robots = rc.senseNearbyRobots(rc.getCurrentSensorRadiusSquared(), rc.getTeam());
 				for(RobotInfo robo : robots) {
-					if(robo.type == RobotType.MINER && robo.location.x <= HQs[0].x + 2 && robo.location.x >= HQs[0].x - 3 && robo.location.y <= HQs[0].y + 2 && robo.location.y <= HQs[0].y - 2) {
+					if(robo.type == RobotType.MINER && robo.location.x <= HQs[0].x + 2 && robo.location.x >= HQs[0].x - 3 && robo.location.y <= HQs[0].y + 2 && robo.location.y >= HQs[0].y - 2) {
 						Direction dir = HQs[0].directionTo(center);
 						moveReqs.add(0, new MapLocation[] {robo.location, HQs[0].translate(3*dir.dx, 3*dir.dy)});
 					}
@@ -136,39 +136,42 @@ public class Drone extends Unit {
 			while(!rc.canSenseLocation(moveReqs.get(0)[0])) {
 				yield();
 			}
-			int roboId = rc.senseRobotAtLocation(moveReqs.get(0)[0]).ID;
-			while(!rc.canPickUpUnit(roboId)) {
-				yield();
-			}
-			rc.pickUpUnit(roboId);
-			
-			// Move to desired location
-			System.out.println("Moving to drop off");
-			MapLocation dropOff = moveReqs.get(0)[1] != null ? moveReqs.get(0)[1] : landscaperSpots.remove(0);
-			rc.setIndicatorDot(dropOff, 120, 120, 120);
-			while(!loc.isAdjacentTo(dropOff)) {
-				moveCloser(dropOff, false);
-				yield();
-			}
-			
-			while(loc.equals(dropOff)) {
-				System.out.println("Need to move");
-				for(Direction dir : Direction.allDirections()) {
-					if(rc.canMove(dir)) {
-						rc.move(dir);
-						yield();
-						loc = rc.getLocation();
-						break;
+			rc.setIndicatorDot(moveReqs.get(0)[0], 120, 120, 120);
+			if(rc.senseRobotAtLocation(moveReqs.get(0)[0]) != null) {
+				int roboId = rc.senseRobotAtLocation(moveReqs.get(0)[0]).ID;
+				while(!rc.canPickUpUnit(roboId)) {
+					yield();
+				}
+				rc.pickUpUnit(roboId);
+				
+				// Move to desired location
+				System.out.println("Moving to drop off");
+				MapLocation dropOff = moveReqs.get(0)[1] != null ? moveReqs.get(0)[1] : landscaperSpots.remove(0);
+				rc.setIndicatorDot(dropOff, 120, 120, 120);
+				while(!loc.isAdjacentTo(dropOff)) {
+					moveCloser(dropOff, false);
+					yield();
+				}
+				
+				while(loc.equals(dropOff)) {
+					System.out.println("Need to move");
+					for(Direction dir : Direction.allDirections()) {
+						if(rc.canMove(dir)) {
+							rc.move(dir);
+							yield();
+							loc = rc.getLocation();
+							break;
+						}
 					}
 				}
+				
+				// Drop off
+				System.out.println("Dropping off");
+				while(!rc.canDropUnit(loc.directionTo(dropOff))) {
+					yield();
+				}
+				rc.dropUnit(loc.directionTo(dropOff));
 			}
-			
-			// Drop off
-			System.out.println("Dropping off");
-			while(!rc.canDropUnit(loc.directionTo(dropOff))) {
-				yield();
-			}
-			rc.dropUnit(loc.directionTo(dropOff));
 			
 			// Task completed
 			System.out.println("Done");

@@ -63,16 +63,14 @@ public class Landscaper extends Unit {
 		int currSpot = 0;
 		while(!loc.equals(spots[currSpot])) {
 			rc.setIndicatorDot(spots[currSpot], 255, 0, 0);
-			if(!(rc.canSenseLocation(spots[currSpot]) && rc.senseRobotAtLocation(spots[currSpot]) != null && rc.senseRobotAtLocation(spots[currSpot]).type == RobotType.LANDSCAPER)) {
+			if(rc.onTheMap(spots[currSpot]) && !(rc.canSenseLocation(spots[currSpot]) && rc.senseRobotAtLocation(spots[currSpot]) != null && rc.senseRobotAtLocation(spots[currSpot]).type == RobotType.LANDSCAPER)) {
 				System.out.println("Move!" + rc.getCooldownTurns());
 				moveCloser(spots[currSpot], false);
-				yield();
 			} else {
 				System.out.println("Else");
 				currSpot = (currSpot + 1) % 4;
-				Clock.yield();
-				checkTransactions();
 			}
+			yield();
 		}
 		
 		return currSpot;
@@ -89,7 +87,6 @@ public class Landscaper extends Unit {
 				mineFrom = Direction.NORTHEAST;
 			} else {
 				mineFrom = Direction.SOUTH;
-				placeSpots[2] = null;
 			}
 		} else {
 			placeSpots[0] = Direction.NORTH;
@@ -104,11 +101,8 @@ public class Landscaper extends Unit {
 		
 		Direction needDirt = placeSpots[0];
 		while(true) {
-			if(placeSpots[2] == null && vaporator != null) {
-				placeSpots[2] = Direction.WEST;
-			}
 			for(Direction dir : placeSpots) {
-				if(dir != null && rc.senseElevation(rc.adjacentLocation(dir)) < rc.senseElevation(rc.adjacentLocation(needDirt))) {
+				if(rc.senseElevation(rc.adjacentLocation(dir)) < rc.senseElevation(rc.adjacentLocation(needDirt))) {
 					needDirt = dir;
 				}
 			}

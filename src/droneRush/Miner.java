@@ -161,7 +161,7 @@ public class Miner extends Unit {
 		giveUp = 0;
 
 		// Move up to soup
-		while(!(loc.equals(target) || loc.isAdjacentTo(target)) && giveUp < 20 && rc.senseSoup(target) != 0) {
+		while(!(loc.equals(target) || loc.isAdjacentTo(target)) && giveUp < 20 && (!rc.canSenseLocation(target) || rc.senseSoup(target) != 0)) {
 			rc.setIndicatorDot(target, 0, 255, 255);
 			moveCloser(target, false);
 			giveUp++;
@@ -178,7 +178,7 @@ public class Miner extends Unit {
 
 		// If the soup is gone (also check if soup is reachable preferably)
 		rc.setIndicatorDot(target, 255, 255, 0);
-		if(rc.senseSoup(target) == 0) {
+		if(rc.canSenseLocation(target) && rc.senseSoup(target) == 0) {
 			rc.setIndicatorDot(target, 255, 255, 255);
 			soup.remove(target);
 			target = null;
@@ -216,7 +216,7 @@ public class Miner extends Unit {
 		while(!loc.isAdjacentTo(buildSpot)) {
 			moveCloser(buildSpot, false);
 			count++;
-			if(count > 20) {
+			if(count > 20 && robo == RobotType.VAPORATOR) {
 				int[] message = new int[] {117299, loc.x, loc.y, buildSpot.x, buildSpot.y - 1, -1, -1};
 				while(!rc.canSubmitTransaction(message, 10)) {
 					yield();
@@ -247,6 +247,11 @@ public class Miner extends Unit {
 			code = 117292;
 		} else if(robo == RobotType.VAPORATOR) {
 			code = 117293;
+			int[] message = new int[] {117299, loc.x, loc.y, loc.x - 2, loc.y - 2, -1, -1};
+			while(!rc.canSubmitTransaction(message, 10)) {
+				yield();
+			}
+			rc.submitTransaction(message, 10);
 		} else {
 			code = 0;
 			System.out.println("Failed to code");

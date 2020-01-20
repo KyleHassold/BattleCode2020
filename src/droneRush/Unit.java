@@ -1,7 +1,9 @@
 package droneRush;
 
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.Random;
 
 import battlecode.common.*;
 
@@ -52,9 +54,53 @@ public abstract class Unit extends Robot {
 		}
 		return false;
 	}
+	
+	protected boolean pathFindTo(MapLocation target, int moveLimit, boolean avoid, String distance) {
+		List<MapLocation> path = new ArrayList<MapLocation>();
+		Random rand = new Random();
+        int[] offsets = {0, 1, -1, 2, -2, 3, -3, 4};
+        int giveUp = 0;
+		
+		while(giveUp < moveLimit && (distance.equals("On") && !loc.equals(target)) || (distance.equals("Adj") && !loc.isAdjacentTo(target)) || (distance.equals("In Range") && rc.canSenseLocation(target))) {
+			int baseDir = directions.indexOf(loc.directionTo(target));
+			Direction moveDir = Direction.CENTER;
+			MapLocation moveLoc;
+			for(int offset : offsets) {
+				moveDir = directions.get((baseDir + offset + 8) % 8);
+				moveLoc = loc.translate(moveDir.dx, moveDir.dy);
+				if(Collections.frequency(path, moveLoc) < 2) {
+					try {
+						if(rc.canSenseLocation(moveLoc) && rc.senseRobotAtLocation(moveLoc) != null && rand.nextDouble() < 0.7) {
+							while(rc.canSenseLocation(moveLoc) && rc.senseRobotAtLocation(moveLoc) != null) {
+								yield();
+							}
+							break;
+						} else if(canMoveComplete(moveDir, avoid, target)) {
+							break;
+						}
+					} catch (GameActionException e) {
+						e.printStackTrace();
+					}
+				}
+			}
+			
+			if(rc.canMove(moveDir)) {
+				try {
+					rc.move(moveDir);
+					path.add(loc);
+					loc = rc.getLocation();
+					yield();
+				} catch (GameActionException e) {
+					// TODO Auto-generated catch block
+					e.printStackTrace();
+				}
+			}
+			giveUp++;
+		}
+		return false;
+	}
 
 	protected boolean canMoveComplete(Direction moveDir, boolean avoidWalls, MapLocation target) throws GameActionException {
-		System.out.println(moveDir + ": " + moveAwayFromHQ(moveDir));
 		if(ref != null && rc.getType() == RobotType.MINER && !moveAwayFromHQ(moveDir)) {
 			return false;
 		}
