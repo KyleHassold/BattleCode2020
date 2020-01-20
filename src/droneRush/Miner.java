@@ -58,7 +58,7 @@ public class Miner extends Unit {
 
 		// Get initial target if any soup was found
 		if(!soup.isEmpty()) {
-			target = bestSoup();
+			target = bestSoup(0);
 			rc.setIndicatorDot(target, 255, 0, 0);
 		}
 		
@@ -68,14 +68,15 @@ public class Miner extends Unit {
 				// Find and mine soup until full
 				while(rc.getSoupCarrying() < RobotType.MINER.soupLimit) {
 					getSoup();
-					if(desSch != null && checked == false) {
+					if(ref != null && checked == false) {
 						Set<MapLocation> tempSoup = new HashSet<MapLocation>();
 						for(MapLocation s : soup) {
-							if(!(s.x <= HQs[0].x + 2 && s.x >= HQs[0].x - 3 && s.y <= HQs[0].y + 2 && s.y <= HQs[0].y - 2)) {
+							if(!(s.x <= HQs[0].x + 2 && s.x >= HQs[0].x - 3 && s.y <= HQs[0].y + 2 && s.y >= HQs[0].y - 2)) {
 								tempSoup.add(s);
 							}
 						}
 						soup = tempSoup;
+						checked = true;
 					}
 					
 					if(builder && rc.getTeamSoup() >= buildings[buildCount].cost + 10) {
@@ -104,81 +105,33 @@ public class Miner extends Unit {
 	}
 
 	private void getSoup() throws GameActionException {
-		int giveUp = 0; // So they stop going after the same soup if they can reach it
-		boolean hasBeenRandom = target == null && soup.isEmpty(); // If they find new soup for potentially everyone
-
-		// While not in range of soup
-		while(target == null || !rc.canSenseLocation(target)) {
-			// If targeting can be done
-			if(target == null && !soup.isEmpty()) {
-				target = bestSoup();
-				giveUp = 0;
-
-				// If this is potentially new soup for everyone
-				if(hasBeenRandom) {
-					int[] message = new int[7];
-					message[0] = 117290;
-					message[1] = target.x;
-					message[2] = target.y;
-					message[3] = map.get(target)[2];
-					if(rc.canSubmitTransaction(message, 1)) {
-						rc.submitTransaction(message, 1);
-					}
+		System.out.println("Getting Soup");
+		while(soup.isEmpty()) {
+			moveRandom();
+			yield();
+			System.out.println("Moving Randomly");
+		}
+		target = bestSoup(0);
+		System.out.println("Target: " + target);
+		
+		if(pathFindTo(target, 50, false, "In Range") && rc.canSenseLocation(target) && rc.senseSoup(target) != 0) {
+			System.out.println("In Range!");
+			if(pathFindTo(target, 15, false, "Adj")) {
+				System.out.println("Adjacent!");
+				Direction dir = loc.directionTo(target);
+				while(rc.canMineSoup(dir)) {
+					System.out.println("Mining!");
+					rc.mineSoup(dir);
+					yield();
 				}
 			}
-
-			// If youre still trying to reach the soup, move closer
-			if(target != null && giveUp < 20) {
-				rc.setIndicatorDot(target, 255, 0, 0);
-				moveCloser(target, false);
-				hasBeenRandom = false;
-			} else {
-				moveRandom(); // Make this better
-				hasBeenRandom = true;
-			}
-			giveUp++;
-
-			// Sense for new soup
-			MapLocation[] newSoup = rc.senseNearbySoup();
-			for(MapLocation s : newSoup) {
-				if(!map.containsKey(s)) {
-					soup.add(s);
-					int soupAmount = rc.canSenseLocation(s) ? rc.senseSoup(s) : 1;
-					map.put(s, new int[] {0, 0, soupAmount, 0});
-				}
-			}
-
-			// If you cant reach the soup
-			if(target != null && giveUp >= 20) {
-				rc.setIndicatorDot(target, 255, 255, 255);
-				soup.remove(target);
-				target = null;
-				giveUp = 0;
-			}
-			yield();
 		}
-		// Should be in range of soup now
-		giveUp = 0;
-
-		// Move up to soup
-		while(!(loc.equals(target) || loc.isAdjacentTo(target)) && giveUp < 20 && (!rc.canSenseLocation(target) || rc.senseSoup(target) != 0)) {
-			rc.setIndicatorDot(target, 0, 255, 255);
-			moveCloser(target, false);
-			giveUp++;
-			yield();
-		}
-
-		// Mine the soup
-		Direction dir = loc.directionTo(target);
-		rc.setIndicatorDot(target, 255, 0, 255);
-		while(rc.canMineSoup(dir)) {
-			rc.mineSoup(dir);
-			yield();
-		}
-
+		System.out.println("Done");
+		
 		// If the soup is gone (also check if soup is reachable preferably)
 		rc.setIndicatorDot(target, 255, 255, 0);
 		if(rc.canSenseLocation(target) && rc.senseSoup(target) == 0) {
+			System.out.println("No More Soup");
 			rc.setIndicatorDot(target, 255, 255, 255);
 			soup.remove(target);
 			target = null;
@@ -209,9 +162,14 @@ public class Miner extends Unit {
 	}
 	
 	private void build(RobotType robo, MapLocation buildSpot) throws GameActionException {
-		if(buildSpot == null) {
-			buildSpot = bestSoup();
+		while(buildSpot == null && bestSoup(15) == null) {
+			moveRandom();
+			yield();
 		}
+		if(buildSpot == null) {
+			buildSpot = bestSoup(15);
+		}
+		
 		int count = 0;
 		while(!loc.isAdjacentTo(buildSpot)) {
 			moveCloser(buildSpot, false);

@@ -104,6 +104,10 @@ public class Drone extends Unit {
 	
 	private void runMover() throws GameActionException {
 		List<MapLocation> landscaperSpots = new ArrayList<MapLocation>();
+		landscaperSpots.add(new MapLocation(HQs[0].x + 1, HQs[0].y));
+		landscaperSpots.add(new MapLocation(HQs[0].x - 1, HQs[0].y + 1));
+		landscaperSpots.add(new MapLocation(HQs[0].x, HQs[0].y - 1));
+		landscaperSpots.add(new MapLocation(HQs[0].x - 2, HQs[0].y));
 		landscaperSpots.add(new MapLocation(HQs[0].x + 1, HQs[0].y + 1));
 		landscaperSpots.add(new MapLocation(HQs[0].x + 1, HQs[0].y - 1));
 		landscaperSpots.add(new MapLocation(HQs[0].x - 1, HQs[0].y - 1));
@@ -114,12 +118,16 @@ public class Drone extends Unit {
 		while(true) {
 			// Wait for request
 			while(moveReqs.size() == 0) {
-				moveCloser(new MapLocation(HQs[0].x + 3 * HQs[0].directionTo(center).dx, HQs[0].y + 3 * HQs[0].directionTo(center).dy), false);
+				Direction dir = HQs[0].directionTo(center);
+				pathFindTo(new MapLocation(HQs[0].x + 3 * dir.dx, HQs[0].y + 3 * dir.dy), 2, false, "On");
 				RobotInfo[] robots = rc.senseNearbyRobots(rc.getCurrentSensorRadiusSquared(), rc.getTeam());
 				for(RobotInfo robo : robots) {
-					if(robo.type == RobotType.MINER && robo.location.x <= HQs[0].x + 2 && robo.location.x >= HQs[0].x - 3 && robo.location.y <= HQs[0].y + 2 && robo.location.y >= HQs[0].y - 2) {
-						Direction dir = HQs[0].directionTo(center);
-						moveReqs.add(0, new MapLocation[] {robo.location, HQs[0].translate(3*dir.dx, 3*dir.dy)});
+					if(ref != null && robo.location.x <= HQs[0].x + 2 && robo.location.x >= HQs[0].x - 3 && robo.location.y <= HQs[0].y + 2 && robo.location.y >= HQs[0].y - 2) {
+						if(robo.type == RobotType.MINER) {
+							moveReqs.add(0, new MapLocation[] {robo.location, ref.translate(0, 1)});
+						} else if(robo.type == RobotType.COW) {
+							moveReqs.add(0, new MapLocation[] {robo.location, new MapLocation(HQs[0].x + 3 * dir.dx, HQs[0].y + 3 * dir.dy)});
+						}
 					}
 				}
 				yield();
@@ -127,50 +135,51 @@ public class Drone extends Unit {
 			
 			// Move to target robot
 			System.out.println("Moving to target");
-			while(!loc.isAdjacentTo(moveReqs.get(0)[0])) {
-				moveCloser(moveReqs.get(0)[0], false);
-			}
-			
-			// Sense the robot to pick up
-			System.out.println("Picking up target");
-			while(!rc.canSenseLocation(moveReqs.get(0)[0])) {
-				yield();
-			}
-			rc.setIndicatorDot(moveReqs.get(0)[0], 120, 120, 120);
-			if(rc.senseRobotAtLocation(moveReqs.get(0)[0]) != null) {
-				int roboId = rc.senseRobotAtLocation(moveReqs.get(0)[0]).ID;
-				while(!rc.canPickUpUnit(roboId)) {
-					yield();
-				}
-				rc.pickUpUnit(roboId);
-				
-				// Move to desired location
-				System.out.println("Moving to drop off");
-				MapLocation dropOff = moveReqs.get(0)[1] != null ? moveReqs.get(0)[1] : landscaperSpots.remove(0);
-				rc.setIndicatorDot(dropOff, 120, 120, 120);
-				while(!loc.isAdjacentTo(dropOff)) {
-					moveCloser(dropOff, false);
-					yield();
-				}
-				
-				while(loc.equals(dropOff)) {
-					System.out.println("Need to move");
-					for(Direction dir : Direction.allDirections()) {
-						if(rc.canMove(dir)) {
-							rc.move(dir);
-							yield();
-							loc = rc.getLocation();
-							break;
+			if(pathFindTo(moveReqs.get(0)[0], 100, false, "Adj") && rc.canSenseLocation(moveReqs.get(0)[0])) {
+				rc.setIndicatorDot(moveReqs.get(0)[0], 120, 120, 120);
+				if(rc.senseRobotAtLocation(moveReqs.get(0)[0]) != null) {
+					int roboId = rc.senseRobotAtLocation(moveReqs.get(0)[0]).ID;
+					while(!rc.canPickUpUnit(roboId)) {
+						yield();
+					}
+					rc.pickUpUnit(roboId);
+					
+					// Move to desired location
+					System.out.println("Moving to drop off: " + moveReqs.get(0)[1]);
+					MapLocation dropOff = moveReqs.get(0)[1] != null ? moveReqs.get(0)[1] : landscaperSpots.remove(0);
+					rc.setIndicatorDot(dropOff, 120, 120, 120);
+					while(moveReqs.get(0)[1] == null && pathFindTo(dropOff, 50, false, "In Range") && rc.canSenseLocation(dropOff) && rc.senseRobotAtLocation(dropOff) != null) {
+						System.out.println("Yes");
+						if(rc.senseRobotAtLocation(dropOff).type == RobotType.LANDSCAPER) {
+							dropOff = landscaperSpots.remove(0);
+						} else {
+							landscaperSpots.add(landscaperSpots.remove(0));
+							dropOff = landscaperSpots.get(0);
 						}
+						rc.setIndicatorDot(dropOff, 120, 120, 120);
+					}
+					if(pathFindTo(dropOff, 50, false, "Adj")) {
+						yield();
+						while(loc.equals(dropOff)) {
+							System.out.println("Need to move");
+							for(Direction dir : Direction.allDirections()) {
+								if(rc.canMove(dir)) {
+									rc.move(dir);
+									yield();
+									loc = rc.getLocation();
+									break;
+								}
+							}
+						}
+
+						// Drop off
+						System.out.println("Dropping off");
+						while(!rc.canDropUnit(loc.directionTo(dropOff))) {
+							yield();
+						}
+						rc.dropUnit(loc.directionTo(dropOff));
 					}
 				}
-				
-				// Drop off
-				System.out.println("Dropping off");
-				while(!rc.canDropUnit(loc.directionTo(dropOff))) {
-					yield();
-				}
-				rc.dropUnit(loc.directionTo(dropOff));
 			}
 			
 			// Task completed

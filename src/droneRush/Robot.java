@@ -119,12 +119,12 @@ public abstract class Robot {
 		return null;
 	}
 	
-	protected MapLocation bestSoup() {
+	protected MapLocation bestSoup(int rSq) {
 		MapLocation bestSoup = null;
 		int bestScore = 0;
 		for(MapLocation s : soup) {
 			int temp = loc.distanceSquaredTo(s) + s.distanceSquaredTo(ref == null ? HQs[0] : ref);
-			if(bestSoup == null || bestScore > temp) {
+			if(!s.isWithinDistanceSquared(HQs[0], rSq) && (bestSoup == null || bestScore > temp)) {
 				bestSoup = s;
 				bestScore = temp;
 			}
@@ -191,6 +191,7 @@ public abstract class Robot {
 				end = new MapLocation(t.getMessage()[3], t.getMessage()[4]);
 			}
 			moveReqs.add(new MapLocation[] {start, end});
+			System.out.println("Move Request Message Recieved!");
 		}
 	}
 }

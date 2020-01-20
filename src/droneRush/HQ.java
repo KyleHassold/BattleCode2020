@@ -17,7 +17,7 @@ public class HQ extends Building {
 		Collections.addAll(soup, rc.senseNearbySoup());
 		Direction dir = loc.directionTo(center);
 		if(!soup.isEmpty()) {
-			dir = loc.directionTo(bestSoup());
+			dir = loc.directionTo(bestSoup(0));
 		}
 		while(miners < 6) {
 			loc = rc.getLocation();
