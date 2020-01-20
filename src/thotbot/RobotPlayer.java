@@ -119,7 +119,7 @@ public strictfp class RobotPlayer {
 
     static void runHQ() throws GameActionException {
 
-        while (minercount < 4)
+        while (minercount < 5)
         {
             // Get list of possible directions where miners can be spawned
             List<Direction> directionsToSpawn= getSpawnableDirections(RobotType.MINER);
@@ -666,6 +666,7 @@ public strictfp class RobotPlayer {
                 break;
             }
 
+            // ACTUALLY check if target is really within sensor range
             if (rc.getType() == RobotType.MINER && (expendedSoupLocs.contains(tg) || (tg.equals(HQ) && !refLocs.contains(HQ))))
                 break;
 
