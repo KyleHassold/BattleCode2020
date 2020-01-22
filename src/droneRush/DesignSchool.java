@@ -11,10 +11,15 @@ public class DesignSchool extends Building {
 	@Override
 	protected void run() throws GameActionException {
 		int landscapers = 0;
-		Direction dir = loc.directionTo(HQs[0]).rotateLeft().rotateLeft();
+		Direction dir = loc.directionTo(HQs[0]);
+		if(dir == Direction.SOUTHEAST || dir == Direction.SOUTHWEST) {
+			dir = Direction.SOUTH;
+		} else {
+			dir = Direction.NORTH;
+		}
 		while(true) {
 			try {
-				if((landscapers < 4 && ref != null) || (landscapers < 10 && vaporator != null) && rc.canBuildRobot(RobotType.LANDSCAPER, dir)) {
+				if(landscapers < 8 && (ref != null || rc.getRoundNum() > 400) && rc.canBuildRobot(RobotType.LANDSCAPER, dir)) {
 					rc.buildRobot(RobotType.LANDSCAPER, dir);
 					landscapers++;
 				}

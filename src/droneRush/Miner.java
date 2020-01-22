@@ -18,6 +18,15 @@ public class Miner extends Unit {
 
 		if(rc.getRoundNum() == 3) {
 			builder = true;
+			Direction awayCenter = HQs[0].directionTo(center);
+			if(isCardinalDir(awayCenter)) {
+				awayCenter = awayCenter.rotateRight();
+			}
+			buildSpots[0] = new MapLocation(HQs[0].x + 2 * awayCenter.dx, HQs[0].y + awayCenter.dy);
+			buildSpots[1] = new MapLocation(HQs[0].x + awayCenter.dx, HQs[0].y + 2 * awayCenter.dy);
+			buildSpots[2] = null;
+			buildSpots[3] = new MapLocation(HQs[0].x - awayCenter.dx, HQs[0].y + 2 * awayCenter.dy);
+			
 			System.out.println("Builder");
 		}
 
@@ -26,23 +35,6 @@ public class Miner extends Unit {
 		} catch (GameActionException e) {
 			e.printStackTrace();
 		}
-		
-		Direction awayCenter = center.directionTo(HQs[0]);
-		if(awayCenter == Direction.NORTH || awayCenter == Direction.EAST || awayCenter == Direction.SOUTH || awayCenter == Direction.WEST) {
-			awayCenter = awayCenter.rotateRight();
-		}
-		buildSpots[0] = new MapLocation(HQs[0].x + 2 * awayCenter.dx, HQs[0].y + 2 * awayCenter.dy);
-		if(awayCenter == Direction.NORTHEAST) {
-			buildSpots[1] = new MapLocation(HQs[0].x + 2 * awayCenter.dx + 1, HQs[0].y + 2 * awayCenter.dy);
-		} else if(awayCenter == Direction.SOUTHEAST) {
-			buildSpots[1] = new MapLocation(HQs[0].x + 2 * awayCenter.dx, HQs[0].y + 2 * awayCenter.dy - 1);
-		} else if(awayCenter == Direction.SOUTHWEST) {
-			buildSpots[1] = new MapLocation(HQs[0].x + 2 * awayCenter.dx - 1, HQs[0].y + 2 * awayCenter.dy);
-		} else {
-			buildSpots[1] = new MapLocation(HQs[0].x + 2 * awayCenter.dx, HQs[0].y + 2 * awayCenter.dy + 1);
-		}
-		buildSpots[2] = null;
-		buildSpots[3] = HQs[0].translate(-1, 0);
 	}
 
 	@Override
@@ -147,9 +139,8 @@ public class Miner extends Unit {
 		}
 		
 		// Move to HQ
-		while(!loc.isAdjacentTo(returnTo)) {
-			moveCloser(returnTo, false);
-			yield();
+		if(!pathFindTo(returnTo, 40, false, "Adj")) {
+			System.out.println("Failed to get to ref");
 		}
 
 		// Deposit soup to be refined

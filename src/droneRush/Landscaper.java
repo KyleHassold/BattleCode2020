@@ -29,20 +29,39 @@ public class Landscaper extends Unit {
 	protected void run() throws GameActionException {
 		try {
 			System.out.println("Landscaper");
-			/*if(vaporator == null) {
-				System.out.println("First 4");
-				moveToSpot();
-			} else {*/
-				int[] message = new int[] {117299, loc.x, loc.y, -1, -1, -1, -1};
-				while(!rc.canSubmitTransaction(message, 10)) {
+			rc.setIndicatorDot(landscaperSpots.get(0), 255, 0, 0);
+			target = landscaperSpots.remove(0);
+			while(landscaperSpots.size() > 0 && !loc.equals(target) && pathFindTo(target, 20, false, "In Range") && rc.senseRobotAtLocation(target) != null && rc.senseRobotAtLocation(target).type == RobotType.LANDSCAPER) {
+				target = landscaperSpots.remove(0);
+				rc.setIndicatorDot(target, 255, 0, 0);
+			}
+			if(landscaperSpots.size() == 0 && !loc.equals(target) && pathFindTo(target, 20, false, "In Range") && rc.senseRobotAtLocation(target) != null && rc.senseRobotAtLocation(target).type == RobotType.LANDSCAPER) {
+				while(true) {
+					System.out.println("Failed to get to any spot");
 					yield();
 				}
-				rc.submitTransaction(message, 10);
-				while(!landscaperSpots.contains(rc.getLocation())) {
-					yield();
+			}
+
+			yield();
+			while(!loc.equals(target)) {
+				if(rc.canSenseLocation(target) && rc.senseRobotAtLocation(target) != null && rc.senseRobotAtLocation(target).type == RobotType.LANDSCAPER) {
+					target = landscaperSpots.remove(0);
 				}
-				loc = rc.getLocation();
-			//}
+				MapLocation prevLoc = loc;
+				pathFindToOne(target, false, "On");
+				if(loc.equals(prevLoc)) {
+					int[] message = new int[] {117299, loc.x, loc.y, target.x, target.y, -1, -1};
+					while(!rc.canSubmitTransaction(message, 10)) {
+						yield();
+					}
+					rc.submitTransaction(message, 10);
+					while(!landscaperSpots.get(0).equals(rc.getLocation())) {
+						yield();
+					}
+					loc = rc.getLocation();
+				}
+				yield();
+			}
 			barricade();
 		} catch(GameActionException e) {
 			System.out.println(rc.getType() + " Exception");
@@ -50,69 +69,21 @@ public class Landscaper extends Unit {
 		}
 	}
 	
-	private void moveToSpot() throws GameActionException {
-		MapLocation[] spots = new MapLocation[4];
-		spots[0] = new MapLocation(HQs[0].x + 1, HQs[0].y);
-		spots[1] = new MapLocation(HQs[0].x - 1, HQs[0].y + 1);
-		spots[2] = new MapLocation(HQs[0].x, HQs[0].y - 1);
-		spots[3] = new MapLocation(HQs[0].x - 2, HQs[0].y);
-		int currSpot = 0;
-		while(!loc.equals(spots[currSpot])) {
-			rc.setIndicatorDot(spots[currSpot], 255, 0, 0);
-			if(rc.onTheMap(spots[currSpot]) && !(rc.canSenseLocation(spots[currSpot]) && rc.senseRobotAtLocation(spots[currSpot]) != null && rc.senseRobotAtLocation(spots[currSpot]).type == RobotType.LANDSCAPER)) {
-				System.out.println("Move!" + rc.getCooldownTurns());
-				if(!pathFindTo(spots[currSpot], 20, false, "On")) {
-					int[] message = new int[] {117299, loc.x, loc.y, -1, -1, -1, -1};
-					while(!rc.canSubmitTransaction(message, 10)) {
-						yield();
-					}
-					rc.submitTransaction(message, 10);
-					System.out.println("Move Requested");
-					break;
-				}
-			} else {
-				currSpot = (currSpot + 1) % 4;
-			}
-			yield();
-		}
-	}
-	
 	private void barricade() throws GameActionException {
-		/*Direction[] placeSpots;
-		if(loc.equals(new MapLocation(HQs[0].x - 1, HQs[0].y + 1)) || loc.equals(new MapLocation(HQs[0].x, HQs[0].y - 1))) {
-			placeSpots = new Direction[3];
-			placeSpots[0] = Direction.EAST;
-			placeSpots[1] = Direction.CENTER;
-			placeSpots[2] = Direction.WEST;
-		} else if(loc.equals(new MapLocation(HQs[0].x + 1, HQs[0].y)) || loc.equals(new MapLocation(HQs[0].x - 2, HQs[0].y))) {
-			placeSpots = new Direction[3];
-			placeSpots[0] = Direction.NORTH;
-			placeSpots[1] = Direction.CENTER;
-			placeSpots[2] = Direction.SOUTH;
-		} else {
-			placeSpots = new Direction[1];
-			placeSpots[0] = Direction.CENTER;
+		Direction placeDirt = Direction.CENTER;
+		Direction mineDir = HQs[0].directionTo(rc.getLocation());
+		if(!rc.onTheMap(rc.adjacentLocation(mineDir)) && !isCardinalDir(mineDir)) {
+			mineDir = rc.onTheMap(rc.adjacentLocation(mineDir.rotateRight().rotateRight())) ? mineDir.rotateRight().rotateRight() : mineDir.rotateLeft().rotateLeft();
 		}
-		*/
-		Direction placeSpots = Direction.CENTER;
-		Direction mineDir = landscaperMining.get(landscaperSpots.indexOf(rc.getLocation()));
 		
-		Direction needDirt = placeSpots;
 		while(true) {
-			
-			/*for(Direction dir : placeSpots) {
-				if(rc.senseElevation(rc.adjacentLocation(dir)) < rc.senseElevation(rc.adjacentLocation(needDirt))) {
-					needDirt = dir;
-				}
-			}*/
-			
 			if(rc.canDigDirt(mineDir)) {
 				rc.digDirt(mineDir);
 				yield();
 			}
 			
-			while(rc.canDepositDirt(needDirt)) {
-				rc.depositDirt(needDirt);
+			while(rc.canDepositDirt(placeDirt)) {
+				rc.depositDirt(placeDirt);
 				yield();
 			}
 		}

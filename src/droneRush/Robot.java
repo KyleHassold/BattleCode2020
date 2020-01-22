@@ -133,6 +133,10 @@ public abstract class Robot {
 		return bestSoup;
 	}
 	
+	protected boolean isCardinalDir(Direction dir) {
+		return dir.equals(Direction.NORTH) || dir.equals(Direction.EAST) || dir.equals(Direction.SOUTH) || dir.equals(Direction.WEST);
+	}
+	
 	protected void yield() throws GameActionException {
 		Clock.yield();
 		checkTransactions();

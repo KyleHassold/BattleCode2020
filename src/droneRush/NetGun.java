@@ -17,6 +17,7 @@ public class NetGun extends Building {
 				RobotInfo[] robots = rc.senseNearbyRobots(rc.getCurrentSensorRadiusSquared(), rc.getTeam().opponent());
 				for(RobotInfo robo : robots) {
 					if(robo.type == RobotType.DELIVERY_DRONE && rc.canShootUnit(robo.ID)) {
+						rc.setIndicatorLine(loc, robo.location, 120, 50, 50);
 						rc.shootUnit(robo.ID);
 						break;
 					}

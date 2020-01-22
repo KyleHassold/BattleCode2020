@@ -1,9 +1,5 @@
 package droneRush;
 
-import java.util.List;
-import java.util.ArrayList;
-import java.util.Arrays;
-
 import battlecode.common.*;
 
 public class Drone extends Unit {
