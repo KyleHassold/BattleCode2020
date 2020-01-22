@@ -29,20 +29,20 @@ public class Landscaper extends Unit {
 	protected void run() throws GameActionException {
 		try {
 			System.out.println("Landscaper");
-			if(vaporator == null) {
+			/*if(vaporator == null) {
 				System.out.println("First 4");
 				moveToSpot();
-			} else {
+			} else {*/
 				int[] message = new int[] {117299, loc.x, loc.y, -1, -1, -1, -1};
 				while(!rc.canSubmitTransaction(message, 10)) {
 					yield();
 				}
 				rc.submitTransaction(message, 10);
-				while(loc.equals(rc.getLocation())) {
+				while(!landscaperSpots.contains(rc.getLocation())) {
 					yield();
 				}
 				loc = rc.getLocation();
-			}
+			//}
 			barricade();
 		} catch(GameActionException e) {
 			System.out.println(rc.getType() + " Exception");
@@ -78,7 +78,7 @@ public class Landscaper extends Unit {
 	}
 	
 	private void barricade() throws GameActionException {
-		Direction[] placeSpots = new Direction[3];
+		/*Direction[] placeSpots;
 		if(loc.equals(new MapLocation(HQs[0].x - 1, HQs[0].y + 1)) || loc.equals(new MapLocation(HQs[0].x, HQs[0].y - 1))) {
 			placeSpots = new Direction[3];
 			placeSpots[0] = Direction.EAST;
@@ -93,19 +93,18 @@ public class Landscaper extends Unit {
 			placeSpots = new Direction[1];
 			placeSpots[0] = Direction.CENTER;
 		}
+		*/
+		Direction placeSpots = Direction.CENTER;
+		Direction mineDir = landscaperMining.get(landscaperSpots.indexOf(rc.getLocation()));
 		
-		Direction needDirt = placeSpots[0];
+		Direction needDirt = placeSpots;
 		while(true) {
-			Direction mineDir = HQs[0].directionTo(loc);
-			if(rc.senseRobotAtLocation(loc.translate(mineDir.dx, mineDir.dy)) != null) {
-				mineDir.rotateLeft();
-			}
 			
-			for(Direction dir : placeSpots) {
+			/*for(Direction dir : placeSpots) {
 				if(rc.senseElevation(rc.adjacentLocation(dir)) < rc.senseElevation(rc.adjacentLocation(needDirt))) {
 					needDirt = dir;
 				}
-			}
+			}*/
 			
 			if(rc.canDigDirt(mineDir)) {
 				rc.digDirt(mineDir);

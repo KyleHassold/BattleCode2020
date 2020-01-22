@@ -2,6 +2,7 @@ package droneRush;
 
 import java.util.List;
 import java.util.ArrayList;
+import java.util.Arrays;
 
 import battlecode.common.*;
 
@@ -103,18 +104,6 @@ public class Drone extends Unit {
 	}
 	
 	private void runMover() throws GameActionException {
-		List<MapLocation> landscaperSpots = new ArrayList<MapLocation>();
-		landscaperSpots.add(new MapLocation(HQs[0].x + 1, HQs[0].y));
-		landscaperSpots.add(new MapLocation(HQs[0].x - 1, HQs[0].y + 1));
-		landscaperSpots.add(new MapLocation(HQs[0].x, HQs[0].y - 1));
-		landscaperSpots.add(new MapLocation(HQs[0].x - 2, HQs[0].y));
-		landscaperSpots.add(new MapLocation(HQs[0].x + 1, HQs[0].y + 1));
-		landscaperSpots.add(new MapLocation(HQs[0].x + 1, HQs[0].y - 1));
-		landscaperSpots.add(new MapLocation(HQs[0].x - 1, HQs[0].y - 1));
-		landscaperSpots.add(new MapLocation(HQs[0].x - 2, HQs[0].y - 1));
-		landscaperSpots.add(new MapLocation(HQs[0].x - 2, HQs[0].y + 1));
-		landscaperSpots.add(new MapLocation(HQs[0].x, HQs[0].y + 1));
-		
 		while(true) {
 			// Wait for request
 			while(moveReqs.size() == 0) {
@@ -145,16 +134,16 @@ public class Drone extends Unit {
 					rc.pickUpUnit(roboId);
 					
 					// Move to desired location
-					System.out.println("Moving to drop off: " + moveReqs.get(0)[1]);
 					MapLocation dropOff = moveReqs.get(0)[1] != null ? moveReqs.get(0)[1] : landscaperSpots.remove(0);
+					System.out.println("Moving to drop off: " + dropOff);
 					rc.setIndicatorDot(dropOff, 120, 120, 120);
-					while(moveReqs.get(0)[1] == null && pathFindTo(dropOff, 50, false, "In Range") && rc.canSenseLocation(dropOff) && rc.senseRobotAtLocation(dropOff) != null) {
+					while(moveReqs.get(0)[1] == null && pathFindTo(dropOff, 50, false, "In Range") && rc.canSenseLocation(dropOff) && !loc.equals(dropOff) && rc.senseRobotAtLocation(dropOff) != null) {
 						System.out.println("Yes");
 						if(rc.senseRobotAtLocation(dropOff).type == RobotType.LANDSCAPER) {
 							dropOff = landscaperSpots.remove(0);
 						} else {
-							landscaperSpots.add(landscaperSpots.remove(0));
-							dropOff = landscaperSpots.get(0);
+							landscaperSpots.add(dropOff);
+							dropOff = landscaperSpots.remove(0);
 						}
 						rc.setIndicatorDot(dropOff, 120, 120, 120);
 					}

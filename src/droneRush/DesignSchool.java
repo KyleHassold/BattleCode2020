@@ -11,7 +11,7 @@ public class DesignSchool extends Building {
 	@Override
 	protected void run() throws GameActionException {
 		int landscapers = 0;
-		Direction dir = loc.directionTo(HQs[0]).rotateLeft();
+		Direction dir = loc.directionTo(HQs[0]).rotateLeft().rotateLeft();
 		while(true) {
 			try {
 				if((landscapers < 4 && ref != null) || (landscapers < 10 && vaporator != null) && rc.canBuildRobot(RobotType.LANDSCAPER, dir)) {

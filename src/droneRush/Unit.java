@@ -9,9 +9,31 @@ import battlecode.common.*;
 public abstract class Unit extends Robot {
 	MapLocation target;
 	Direction prevSpot;
+	List<MapLocation> landscaperSpots = new ArrayList<MapLocation>();
+	List<Direction> landscaperMining = new ArrayList<Direction>();
 
 	protected Unit(RobotController rc) {
 		super(rc);
+		landscaperSpots.add(new MapLocation(HQs[0].x + 1, HQs[0].y));
+		landscaperSpots.add(new MapLocation(HQs[0].x - 1, HQs[0].y + 1));
+		landscaperSpots.add(new MapLocation(HQs[0].x, HQs[0].y - 1));
+		landscaperSpots.add(new MapLocation(HQs[0].x - 2, HQs[0].y));
+		landscaperSpots.add(new MapLocation(HQs[0].x - 1, HQs[0].y - 1));
+		landscaperSpots.add(new MapLocation(HQs[0].x, HQs[0].y + 1));
+		landscaperSpots.add(new MapLocation(HQs[0].x + 1, HQs[0].y + 1));
+		landscaperSpots.add(new MapLocation(HQs[0].x + 1, HQs[0].y - 1));
+		landscaperSpots.add(new MapLocation(HQs[0].x - 2, HQs[0].y - 1));
+		landscaperSpots.add(new MapLocation(HQs[0].x - 2, HQs[0].y + 1));
+		landscaperMining.add(Direction.EAST);
+		landscaperMining.add(Direction.NORTH);
+		landscaperMining.add(Direction.SOUTH);
+		landscaperMining.add(Direction.WEST);
+		landscaperMining.add(Direction.SOUTH);
+		landscaperMining.add(Direction.NORTH);
+		landscaperMining.add(Direction.NORTH);
+		landscaperMining.add(Direction.SOUTH);
+		landscaperMining.add(Direction.WEST);
+		landscaperMining.add(Direction.WEST);
 	}
 
 	// Moving
@@ -124,10 +146,10 @@ public abstract class Unit extends Robot {
 			return false;
 		}
 		if(rc.getType() != RobotType.DELIVERY_DRONE) {
-			return prevSpot != moveDir && rc.canMove(moveDir) && !rc.senseFlooding(rc.adjacentLocation(moveDir))
+			return rc.canMove(moveDir) && !rc.senseFlooding(rc.adjacentLocation(moveDir))
 				&& (!avoidWalls || avoidWalls(moveDir));
 		} else {
-			return prevSpot != moveDir && rc.canMove(moveDir) && (!avoidWalls || !rc.adjacentLocation(moveDir).isWithinDistanceSquared(target, GameConstants.NET_GUN_SHOOT_RADIUS_SQUARED));
+			return rc.canMove(moveDir) && (!avoidWalls || !rc.adjacentLocation(moveDir).isWithinDistanceSquared(target, GameConstants.NET_GUN_SHOOT_RADIUS_SQUARED));
 		}
 	}
 	
