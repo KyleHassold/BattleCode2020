@@ -3,6 +3,7 @@ package droneRush;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.Random;
 
 import battlecode.common.*;
 
@@ -27,31 +28,6 @@ public abstract class Unit extends Robot {
 				landscaperSpots.add(spot);
 			}
 		}
-	}
-
-	// Moving
-	protected boolean moveCloser(MapLocation target, boolean avoid) throws GameActionException {
-		if(!rc.isReady()) {
-			return false;
-		}
-
-		int[] baseMove = {0,1,2,-1,-2,3,-3,4};
-		int dir = directions.indexOf(rc.getLocation().directionTo(target));
-		if(dir == -1) { // On spot already
-			return false;
-		}
-
-		Direction moveDir;
-		for(int dDir : baseMove) {
-			moveDir = directions.get((dir + dDir + 8) % 8);
-			if(canMoveComplete(moveDir, avoid, target)) {
-				rc.move(moveDir);
-				prevSpot = moveDir.opposite();
-				loc = rc.getLocation();
-				return true;
-			}
-		}
-		return false;
 	}
 
 	protected boolean moveRandom() throws GameActionException {
@@ -81,6 +57,33 @@ public abstract class Unit extends Robot {
 		}
 		path.clear();
 		return giveUp < moveLimit;
+	}
+	
+	protected boolean findSoup(boolean farSoup) {
+		MapLocation randSpot = getRandSpot();
+		rc.setIndicatorDot(randSpot, 255, 0, 0);
+		int giveUp = 0;
+		int limit = (int) Math.pow(loc.distanceSquaredTo(randSpot), 0.75);
+		boolean found = false;
+		
+		while((!farSoup && soup.isEmpty()) || (farSoup && bestSoup(15) == null)) {
+			found = pathFindToOne(randSpot, true, "On");
+			giveUp++;
+			if(giveUp > limit || found) {
+				randSpot = getRandSpot();
+				rc.setIndicatorDot(randSpot, 255, 0, 0);
+				giveUp = 0;
+				found = false;
+				limit = (int) Math.pow(loc.distanceSquaredTo(randSpot), 0.75);
+			}
+			try {
+				yield();
+			} catch (GameActionException e) {
+				e.printStackTrace();
+			}
+		}
+		
+		return false;
 	}
 	
 	protected boolean pathFindToOne(MapLocation target, boolean avoid, String distance) {
@@ -116,6 +119,32 @@ public abstract class Unit extends Robot {
 			}
 		}
 		return ((distance.equals("On") && loc.equals(target)) || (distance.equals("Adj") && loc.isAdjacentTo(target)) || (distance.equals("In Range") && rc.canSenseLocation(target)));
+	}
+	
+	private MapLocation getRandSpot() {
+		Random rand = new Random();
+		int x = rand.nextInt(center.x - (int) Math.pow(rc.getType().sensorRadiusSquared, 0.5)) + (int) Math.pow(rc.getType().sensorRadiusSquared, 0.5);
+		int y = rand.nextInt(center.y - (int) Math.pow(rc.getType().sensorRadiusSquared, 0.5)) + (int) Math.pow(rc.getType().sensorRadiusSquared, 0.5);
+		double quarter = rand.nextDouble();
+		
+		if(quarter < 0.4) {
+			if(loc.x < center.x) {
+				x += center.x - (int) Math.pow(rc.getType().sensorRadiusSquared, 0.5);
+			}
+		} else if(quarter < 0.8) {
+			if(loc.y < center.y) {
+				y += center.y - (int) Math.pow(rc.getType().sensorRadiusSquared, 0.5);
+			}
+		} else {
+			if(loc.x < center.x) {
+				x += center.x - (int) Math.pow(rc.getType().sensorRadiusSquared, 0.5);
+			}
+			if(loc.y < center.y) {
+				y += center.y - (int) Math.pow(rc.getType().sensorRadiusSquared, 0.5);
+			}
+		}
+		
+		return new MapLocation(x, y);
 	}
 	
 	private void move(Direction dir) throws GameActionException {

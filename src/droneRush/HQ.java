@@ -14,7 +14,10 @@ public class HQ extends Building {
 
 	@Override
 	protected void run() throws GameActionException {
-		Collections.addAll(soup, rc.senseNearbySoup());
+		System.out.println("Start: " + Clock.getBytecodesLeft());
+		MapLocation[] newSoup = rc.senseNearbySoup();
+		System.out.println("end: " + Clock.getBytecodesLeft());
+		Collections.addAll(soup, newSoup);
 		Direction dir = loc.directionTo(center);
 		if(!soup.isEmpty()) {
 			dir = loc.directionTo(bestSoup(0));

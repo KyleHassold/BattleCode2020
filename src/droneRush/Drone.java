@@ -79,17 +79,13 @@ public class Drone extends Unit {
 					count++;
 				}
 			} else {
-				moveCloser(targets[count], true);
-				yield();
+				pathFindTo(targets[count], 80, true, "In Range");
 			}
 		}
 	}
 	
 	private void runDefend() throws GameActionException {
-		while(!loc.isWithinDistanceSquared(HQs[0], 48)) {
-			moveCloser(HQs[0], false);
-			yield();
-		}
+		pathFindTo(HQs[0], 80, false, "In Range");
 		while(true) {
 			yield();
 		}

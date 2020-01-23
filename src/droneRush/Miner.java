@@ -98,10 +98,8 @@ public class Miner extends Unit {
 
 	private void getSoup() throws GameActionException {
 		System.out.println("Getting Soup");
-		while(soup.isEmpty()) {
-			moveRandom();
-			yield();
-			System.out.println("Moving Randomly");
+		if(soup.isEmpty()) {
+			findSoup(false);
 		}
 		target = bestSoup(0);
 		System.out.println("Target: " + target);
@@ -153,27 +151,17 @@ public class Miner extends Unit {
 	}
 	
 	private void build(RobotType robo, MapLocation buildSpot) throws GameActionException {
-		while(buildSpot == null && bestSoup(15) == null) {
-			moveRandom();
-			yield();
-		}
 		if(buildSpot == null) {
+			findSoup(true);
 			buildSpot = bestSoup(15);
 		}
 		
-		int count = 0;
-		while(!loc.isAdjacentTo(buildSpot)) {
-			moveCloser(buildSpot, false);
-			count++;
-			if(count > 20 && robo == RobotType.VAPORATOR) {
-				int[] message = new int[] {117299, loc.x, loc.y, buildSpot.x, buildSpot.y - 1, -1, -1};
-				while(!rc.canSubmitTransaction(message, 10)) {
-					yield();
-				}
-				rc.submitTransaction(message, 10);
-				break;
+		if(!pathFindTo(buildSpot, 50, false, "Adj")) {
+			int[] message = new int[] {117299, loc.x, loc.y, buildSpot.x, buildSpot.y - 1, -1, -1};
+			while(!rc.canSubmitTransaction(message, 10)) {
+				yield();
 			}
-			yield();
+			rc.submitTransaction(message, 10);
 		}
 		
 		while(!loc.isAdjacentTo(buildSpot)) { // In case needing help from drone
