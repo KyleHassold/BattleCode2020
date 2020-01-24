@@ -103,9 +103,9 @@ public class Drone extends Unit {
 				pathFindTo(new MapLocation(HQs[0].x + 3 * dir.dx, HQs[0].y + 3 * dir.dy), 2, false, "On");
 				RobotInfo[] robots = rc.senseNearbyRobots(rc.getCurrentSensorRadiusSquared(), rc.getTeam());
 				for(RobotInfo robo : robots) {
-					if(ref != null && robo.location.x <= HQs[0].x + 2 && robo.location.x >= HQs[0].x - 3 && robo.location.y <= HQs[0].y + 2 && robo.location.y >= HQs[0].y - 2) {
+					if((ref != null || rc.getRoundNum() > 300) && robo.location.x <= HQs[0].x + 2 && robo.location.x >= HQs[0].x - 3 && robo.location.y <= HQs[0].y + 2 && robo.location.y >= HQs[0].y - 2) {
 						if(robo.type == RobotType.MINER) {
-							moveReqs.add(0, new MapLocation[] {robo.location, ref.translate(0, 1)});
+							moveReqs.add(0, new MapLocation[] {robo.location, ref != null ? ref.translate(0, 1) : bestSoup(0)});
 						} else if(robo.type == RobotType.COW) {
 							moveReqs.add(0, new MapLocation[] {robo.location, new MapLocation(HQs[0].x + 3 * dir.dx, HQs[0].y + 3 * dir.dy)});
 						}

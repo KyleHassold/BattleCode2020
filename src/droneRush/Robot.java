@@ -1,12 +1,10 @@
 package droneRush;
 
 import java.util.ArrayList;
-import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
-import java.util.TreeSet;
 
 import battlecode.common.*;
 
@@ -52,6 +50,7 @@ public abstract class Robot {
 	MapLocation loc;
 	MapLocation center;
 	List<MapLocation[]> moveReqs = new ArrayList<MapLocation[]>();
+	boolean terraformer = false;
 	int mapH;
 	int mapW;
 
@@ -137,12 +136,43 @@ public abstract class Robot {
 		return dir.equals(Direction.NORTH) || dir.equals(Direction.EAST) || dir.equals(Direction.SOUTH) || dir.equals(Direction.WEST);
 	}
 	
-	protected void yield() throws GameActionException {
-		Clock.yield();
-		checkTransactions();
-		while(rc.getCooldownTurns() >= 1) {
+	protected boolean senseForBuilding(MapLocation potBuilding) {
+		if(rc.canSenseLocation(potBuilding)) {
+			try {
+				RobotInfo robo = rc.senseRobotAtLocation(potBuilding);
+				return robo != null && (robo.type == RobotType.DESIGN_SCHOOL || robo.type == RobotType.FULFILLMENT_CENTER || robo.type == RobotType.REFINERY || robo.type == RobotType.HQ);
+			} catch (GameActionException e) {
+				e.printStackTrace();
+			}
+		}
+		return false;
+	}
+	
+	protected boolean senseNewSoup(boolean first) {
+		MapLocation[] newSoup = rc.senseNearbySoup();
+		for(MapLocation s : newSoup) {
+			if(first || !map.containsKey(s)) {
+				soup.add(s);
+				map.put(s, new int[] {0,0,1,0});
+			}
+			if(Clock.getBytecodesLeft() < 5000) {
+				return false;
+			}
+		}
+		return true;
+	}
+	
+	protected void yield() {
+		try {
 			Clock.yield();
 			checkTransactions();
+			while(rc.getCooldownTurns() >= 1) {
+				Clock.yield();
+				checkTransactions();
+			}
+		} catch (GameActionException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
 		}
 	}
 
@@ -185,9 +215,17 @@ public abstract class Robot {
 			System.out.println("Fulfillment Center Message Recieved!");
 		} else if(t.getMessage()[0] == 117295) { // Design School
 			loc = new MapLocation(t.getMessage()[1], t.getMessage()[2]);
-			desSch = loc;
+			if(desSch == null) {
+				desSch = loc;
+			}
 			map.put(loc, new int[] {0,0,0,5});
 			System.out.println("Design School Message Recieved!");
+		} else if(t.getMessage()[0] == 117298) { // Terraformer
+			loc = new MapLocation(t.getMessage()[1], t.getMessage()[2]);
+			HQs[0] = loc;
+			terraformer = true;
+			map.put(loc, new int[] {0,0,0,1});
+			System.out.println("Terraformer Message Recieved!");
 		} else if(t.getMessage()[0] == 117299) { // Requires Movement
 			MapLocation start = new MapLocation(t.getMessage()[1], t.getMessage()[2]);
 			MapLocation end = null;

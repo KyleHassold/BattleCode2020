@@ -1,11 +1,10 @@
 package droneRush;
 
-import java.util.Collections;
-
 import battlecode.common.*;
 
 public class HQ extends Building {
 	int miners = 0;
+	boolean doneSensing;
 
 	public HQ(RobotController rc) {
 		super(rc);
@@ -14,10 +13,8 @@ public class HQ extends Building {
 
 	@Override
 	protected void run() throws GameActionException {
-		System.out.println("Start: " + Clock.getBytecodesLeft());
-		MapLocation[] newSoup = rc.senseNearbySoup();
-		System.out.println("end: " + Clock.getBytecodesLeft());
-		Collections.addAll(soup, newSoup);
+		doneSensing = senseNewSoup(true);
+		System.out.println("End: " + Clock.getBytecodesLeft());
 		Direction dir = loc.directionTo(center);
 		if(!soup.isEmpty()) {
 			dir = loc.directionTo(bestSoup(0));
@@ -32,7 +29,11 @@ public class HQ extends Building {
                 System.out.println(rc.getType() + " Exception");
                 e.printStackTrace();
 			}
-			
+			System.out.println("Next: " + Clock.getBytecodesLeft());
+			if(!doneSensing) {
+				doneSensing = senseNewSoup(false);
+			}
+			System.out.println("End: " + Clock.getBytecodesLeft());
 			yield();
 		}
 		

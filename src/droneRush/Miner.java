@@ -2,6 +2,7 @@ package droneRush;
 
 import java.util.Collections;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Set;
 
 import battlecode.common.*;
@@ -12,20 +13,21 @@ public class Miner extends Unit {
 	MapLocation[] buildSpots = new MapLocation[buildings.length];
 	int buildCount = 0;
 	boolean checked = false;
+	boolean terraformer = false;
 
 	public Miner(RobotController rc) {
 		super(rc);
 
 		if(rc.getRoundNum() == 3) {
 			builder = true;
-			Direction awayCenter = HQs[0].directionTo(center);
-			if(isCardinalDir(awayCenter)) {
-				awayCenter = awayCenter.rotateRight();
+			Direction toCenter = HQs[0].directionTo(center);
+			if(isCardinalDir(toCenter)) {
+				toCenter = toCenter.rotateRight();
 			}
-			buildSpots[0] = new MapLocation(HQs[0].x + 2 * awayCenter.dx, HQs[0].y + awayCenter.dy);
-			buildSpots[1] = new MapLocation(HQs[0].x + awayCenter.dx, HQs[0].y + 2 * awayCenter.dy);
+			buildSpots[0] = new MapLocation(HQs[0].x + 2 * toCenter.dx, HQs[0].y + toCenter.dy);
+			buildSpots[1] = new MapLocation(HQs[0].x + toCenter.dx, HQs[0].y + 2 * toCenter.dy);
 			buildSpots[2] = null;
-			buildSpots[3] = new MapLocation(HQs[0].x - awayCenter.dx, HQs[0].y + 2 * awayCenter.dy);
+			buildSpots[3] = new MapLocation(HQs[0].x - toCenter.dx, HQs[0].y + 2 * toCenter.dy);
 			
 			System.out.println("Builder");
 		}
@@ -153,7 +155,8 @@ public class Miner extends Unit {
 	private void build(RobotType robo, MapLocation buildSpot) throws GameActionException {
 		if(buildSpot == null) {
 			findSoup(true);
-			buildSpot = bestSoup(15);
+			buildSpot = bestSoup(30);
+			System.out.println("Build Spot: " + buildSpot);
 		}
 		
 		if(!pathFindTo(buildSpot, 50, false, "Adj")) {
@@ -163,18 +166,37 @@ public class Miner extends Unit {
 			}
 			rc.submitTransaction(message, 10);
 		}
-		
-		while(!loc.isAdjacentTo(buildSpot)) { // In case needing help from drone
-			loc = rc.getLocation();
-			System.out.println("Waiting");
-			yield();
+		yield();
+		if(robo != RobotType.REFINERY) {
+			while(!loc.isAdjacentTo(buildSpot)) { // In case needing help from drone
+				loc = rc.getLocation();
+				System.out.println("Waiting");
+				yield();
+			}
+			
+			Direction dir = loc.directionTo(buildSpot);
+			while(!rc.canBuildRobot(robo, dir)) {
+				yield();
+				System.out.println("Checking");
+				if(!terraformer && (rc.senseFlooding(buildSpot) || Math.abs(rc.senseElevation(buildSpot) - rc.senseElevation(loc)) > GameConstants.MAX_DIRT_DIFFERENCE)) {
+					buildSpot = buildTerraformer();
+					robo = RobotType.DESIGN_SCHOOL;
+					dir = loc.directionTo(buildSpot);
+					int[] message = new int[] {117298, HQs[0].x, HQs[0].y, -1, -1, -1, -1};
+					while(!rc.canSubmitTransaction(message, 10)) {
+						yield();
+					}
+					rc.submitTransaction(message, 10);
+					buildCount--;
+				}
+			}
+			rc.buildRobot(robo, dir);
+		} else if(buildRobot(robo, loc.directionTo(buildSpot))) {
+			System.out.println("Built!");
+			buildSpot = findAdjacentRobot(robo, rc.getTeam());
+		} else {
+			return;
 		}
-		
-		Direction dir = loc.directionTo(buildSpot);
-		while(!rc.canBuildRobot(robo, dir)) {
-			yield();
-		}
-		rc.buildRobot(robo, dir);
 		int code;
 		if(robo == RobotType.FULFILLMENT_CENTER) {
 			code = 117294;
@@ -184,11 +206,6 @@ public class Miner extends Unit {
 			code = 117292;
 		} else if(robo == RobotType.VAPORATOR) {
 			code = 117293;
-			int[] message = new int[] {117299, loc.x, loc.y, loc.x - 2, loc.y - 2, -1, -1};
-			while(!rc.canSubmitTransaction(message, 10)) {
-				yield();
-			}
-			rc.submitTransaction(message, 10);
 		} else {
 			code = 0;
 			System.out.println("Failed to code");
@@ -196,6 +213,47 @@ public class Miner extends Unit {
 		int[] message = new int[] {code, buildSpot.x, buildSpot.y, -1, -1, -1, -1};
 		if(rc.canSubmitTransaction(message, 10)) {
 			rc.submitTransaction(message, 10);
+		}
+	}
+
+	@SuppressWarnings("unchecked")
+	private MapLocation buildTerraformer() {
+		while(true) {
+			if(loc.x > HQs[0].x + 2 || loc.x < HQs[0].x - 2 || loc.y > HQs[0].y + 2 || loc.y < HQs[0].y - 2) {
+				for(Direction dir : Direction.allDirections()) {
+					if(rc.canBuildRobot(RobotType.DESIGN_SCHOOL, dir)) {
+						terraformer = true;
+						return loc.translate(dir.dx, dir.dy);
+					}
+				}
+			}
+			List<Direction> randDirs = (List<Direction>) directions.clone();
+			Collections.shuffle(randDirs);
+			Direction backup = null;
+			for(Direction dir : randDirs) {
+				rc.setIndicatorDot(rc.adjacentLocation(dir), 0, 120, 120);
+				try {
+					if(rc.canMove(dir)) {
+						if(moveAwayFromHQ(dir)) {
+							rc.move(dir);
+							loc = rc.getLocation();
+							break;
+						} else {
+							backup = dir;
+						}
+					}
+				} catch (GameActionException e) {
+					e.printStackTrace();
+				}
+			}
+			if(backup != null && rc.canMove(backup)) {
+				try {
+					rc.move(backup);
+				} catch (GameActionException e) {
+					e.printStackTrace();
+				}
+			}
+			yield();
 		}
 	}
 }

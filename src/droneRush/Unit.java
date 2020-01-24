@@ -12,6 +12,7 @@ public abstract class Unit extends Robot {
 	List<MapLocation> path = new ArrayList<MapLocation>();
 	Direction prevSpot;
 	List<MapLocation> landscaperSpots = new ArrayList<MapLocation>();
+	Random rand = new Random();
 
 	protected Unit(RobotController rc) {
 		super(rc);
@@ -29,31 +30,14 @@ public abstract class Unit extends Robot {
 			}
 		}
 	}
-
-	protected boolean moveRandom() throws GameActionException {
-		@SuppressWarnings("unchecked")
-		List<Direction> rand = (List<Direction>) directions.clone();
-		Collections.shuffle(rand);
-		for(Direction dir : rand) {
-			if(canMoveComplete(dir, true, null)) {
-				prevSpot = dir.opposite();
-				move(dir);
-				return true;
-			}
-		}
-		return false;
-	}
 	
+	// Moving
 	protected boolean pathFindTo(MapLocation target, int moveLimit, boolean avoid, String distance) {
         int giveUp = 0;
 
 		while(giveUp < moveLimit && !pathFindToOne(target, avoid, distance)) {
 			giveUp++;
-			try {
-				yield();
-			} catch (GameActionException e) {
-				e.printStackTrace();
-			}
+			yield();
 		}
 		path.clear();
 		return giveUp < moveLimit;
@@ -63,10 +47,11 @@ public abstract class Unit extends Robot {
 		MapLocation randSpot = getRandSpot();
 		rc.setIndicatorDot(randSpot, 255, 0, 0);
 		int giveUp = 0;
-		int limit = (int) Math.pow(loc.distanceSquaredTo(randSpot), 0.75);
+		int limit = (int) Math.pow(loc.distanceSquaredTo(randSpot), 0.6);
+		System.out.println("Limit: " + limit);
 		boolean found = false;
 		
-		while((!farSoup && soup.isEmpty()) || (farSoup && bestSoup(15) == null)) {
+		while((!farSoup && soup.isEmpty()) || (farSoup && bestSoup(30) == null)) {
 			found = pathFindToOne(randSpot, true, "On");
 			giveUp++;
 			if(giveUp > limit || found) {
@@ -74,20 +59,18 @@ public abstract class Unit extends Robot {
 				rc.setIndicatorDot(randSpot, 255, 0, 0);
 				giveUp = 0;
 				found = false;
-				limit = (int) Math.pow(loc.distanceSquaredTo(randSpot), 0.75);
+				limit = (int) Math.pow(loc.distanceSquaredTo(randSpot), 0.6);
+				System.out.println("Limit: " + limit);
+				path.clear();
 			}
-			try {
-				yield();
-			} catch (GameActionException e) {
-				e.printStackTrace();
-			}
+			yield();
 		}
 		
 		return false;
 	}
 	
 	protected boolean pathFindToOne(MapLocation target, boolean avoid, String distance) {
-		if(((distance.equals("On") && loc.equals(target)) || (distance.equals("Adj") && loc.isAdjacentTo(target)) || (distance.equals("In Range") && rc.canSenseLocation(target)))) {
+		if(((distance.equals("On") && loc.equals(target)) || (distance.equals("Adj") && loc.isAdjacentTo(target) && !loc.equals(target)) || (distance.equals("In Range") && rc.canSenseLocation(target)))) {
 			return true;
 		}
 		
@@ -111,18 +94,44 @@ public abstract class Unit extends Robot {
 
 		if(rc.canMove(moveDir)) {
 			try {
-				path.add(loc);
 				move(moveDir);
 			} catch (GameActionException e) {
-				// TODO Auto-generated catch block
 				e.printStackTrace();
 			}
 		}
-		return ((distance.equals("On") && loc.equals(target)) || (distance.equals("Adj") && loc.isAdjacentTo(target)) || (distance.equals("In Range") && rc.canSenseLocation(target)));
+		return ((distance.equals("On") && loc.equals(target)) || (distance.equals("Adj") && loc.isAdjacentTo(target) && !loc.equals(target)) || (distance.equals("In Range") && rc.canSenseLocation(target)));
 	}
 	
+	private void move(Direction dir) throws GameActionException {
+		rc.move(dir);
+		path.add(loc);
+		if(path.size() > 15) {
+			path.remove(0);
+		}
+		loc = rc.getLocation();
+		if(rc.getType() == RobotType.MINER) {
+			MapLocation[] newSoup = rc.senseNearbySoup();
+			for(MapLocation s : newSoup) {
+				if(!map.containsKey(s)) {
+					soup.add(s);
+					int soupAmount = rc.canSenseLocation(s) ? rc.senseSoup(s) : 1;
+					map.put(s, new int[] {0, 0, soupAmount, 0});
+					
+					int[] message = new int[7];
+					message[0] = 117290;
+					message[1] = s.x;
+					message[2] = s.y;
+					message[3] = map.get(s)[2];
+					if(rc.canSubmitTransaction(message, 1)) {
+						rc.submitTransaction(message, 1);
+					}
+				}
+			}
+		}
+	}
+	
+	// Moving Aux
 	private MapLocation getRandSpot() {
-		Random rand = new Random();
 		int x = rand.nextInt(center.x - (int) Math.pow(rc.getType().sensorRadiusSquared, 0.5)) + (int) Math.pow(rc.getType().sensorRadiusSquared, 0.5);
 		int y = rand.nextInt(center.y - (int) Math.pow(rc.getType().sensorRadiusSquared, 0.5)) + (int) Math.pow(rc.getType().sensorRadiusSquared, 0.5);
 		double quarter = rand.nextDouble();
@@ -146,30 +155,6 @@ public abstract class Unit extends Robot {
 		
 		return new MapLocation(x, y);
 	}
-	
-	private void move(Direction dir) throws GameActionException {
-		rc.move(dir);
-		loc = rc.getLocation();
-		if(rc.getType() == RobotType.MINER) {
-			MapLocation[] newSoup = rc.senseNearbySoup();
-			for(MapLocation s : newSoup) {
-				if(!map.containsKey(s)) {
-					soup.add(s);
-					int soupAmount = rc.canSenseLocation(s) ? rc.senseSoup(s) : 1;
-					map.put(s, new int[] {0, 0, soupAmount, 0});
-					
-					int[] message = new int[7];
-					message[0] = 117290;
-					message[1] = s.x;
-					message[2] = s.y;
-					message[3] = map.get(s)[2];
-					if(rc.canSubmitTransaction(message, 1)) {
-						rc.submitTransaction(message, 1);
-					}
-				}
-			}
-		}
-	}
 
 	private boolean canMoveComplete(Direction moveDir, boolean avoidWalls, MapLocation target) throws GameActionException {
 		if(ref != null && rc.getType() == RobotType.MINER && !moveAwayFromHQ(moveDir)) {
@@ -183,7 +168,7 @@ public abstract class Unit extends Robot {
 		}
 	}
 	
-	private boolean moveAwayFromHQ(Direction dir) throws GameActionException {
+	protected boolean moveAwayFromHQ(Direction dir) throws GameActionException {
 		MapLocation adj = loc.translate(dir.dx, dir.dy);
 		if(adj.x <= HQs[0].x + 2 && adj.x >= HQs[0].x - 2 && adj.y <= HQs[0].y + 2 && adj.y >= HQs[0].y - 2) {
 			Direction awayDir = HQs[0].directionTo(loc);
