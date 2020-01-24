@@ -5,38 +5,40 @@ import battlecode.common.*;
 public class HQ extends Building {
 	int miners = 0;
 	boolean doneSensing;
+	Direction dir;
 
 	public HQ(RobotController rc) {
 		super(rc);
 		HQs[0] = loc;
+		dir = loc.directionTo(center);
 	}
 
 	@Override
-	protected void run() throws GameActionException {
+	protected void run() {
+		// Sense for the surrounding soup
 		doneSensing = senseNewSoup(true);
-		System.out.println("End: " + Clock.getBytecodesLeft());
-		Direction dir = loc.directionTo(center);
+		
+		// If there is soup sensed, get the best
 		if(!soup.isEmpty()) {
 			dir = loc.directionTo(bestSoup(0));
 		}
+		
+		// Spawn in 6 miners
 		while(miners < 6) {
-			loc = rc.getLocation();
-			try {
-				if(buildRobot(RobotType.MINER, dir)) {
-					miners++;
-				}
-			} catch(GameActionException e) {
-                System.out.println(rc.getType() + " Exception");
-                e.printStackTrace();
+			// Build one if possible
+			if(buildRobot(RobotType.MINER, dir)) {
+				miners++;
 			}
-			System.out.println("Next: " + Clock.getBytecodesLeft());
+			
+			// Sense for more soup if there is some left
 			if(!doneSensing) {
 				doneSensing = senseNewSoup(false);
 			}
-			System.out.println("End: " + Clock.getBytecodesLeft());
+
 			yield();
 		}
 		
+		// Become a NetGun after finished spawning in miners
 		Robot netGun = new NetGun(rc);
 		netGun.run();
 	}

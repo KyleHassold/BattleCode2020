@@ -9,7 +9,7 @@ public class Vaporator extends Building {
 	}
 
 	@Override
-	protected void run() throws GameActionException {
+	protected void run() {
 
 		while(true) {
 			try {

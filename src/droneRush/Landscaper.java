@@ -9,20 +9,11 @@ public class Landscaper extends Unit {
 
 	public Landscaper(RobotController rc) {
 		super(rc);
-		try {
-			desSch = findAdjacentRobot(RobotType.DESIGN_SCHOOL, null);
-		} catch (GameActionException e1) {
-			e1.printStackTrace();
-		}
+		desSch = findAdjRobot(RobotType.DESIGN_SCHOOL, null);
 		if(HQs[0] == null) {
-			try {
-				fulCent = findAdjacentRobot(RobotType.FULFILLMENT_CENTER, null);
-				Direction dir = desSch.directionTo(fulCent).rotateLeft();
-				HQs[0] = new MapLocation(fulCent.x + 2 * dir.dx, fulCent.y + 2 * dir.dy);
-			} catch (GameActionException e) {
-				// TODO Auto-generated catch block
-				e.printStackTrace();
-			}
+			fulCent = findAdjRobot(RobotType.FULFILLMENT_CENTER, null);
+			Direction dir = desSch.directionTo(fulCent).rotateLeft();
+			HQs[0] = new MapLocation(fulCent.x + 2 * dir.dx, fulCent.y + 2 * dir.dy);
 			
 			for(RobotInfo robo : rc.senseNearbyRobots(rc.getCurrentSensorRadiusSquared(), rc.getTeam())) {
 				if(robo.type == RobotType.VAPORATOR) {
@@ -30,58 +21,53 @@ public class Landscaper extends Unit {
 				}
 			}
 		}
-		try {
-			checkTransactions();
-		} catch (GameActionException e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
-		}
+		checkTransactions();
 	}
 
 	@Override
-	protected void run() throws GameActionException {
-		try {
-			if(terraformer) {
-				equalizeLandscape();
-				barricadeOuter();
-			} else {
-				System.out.println("Landscaper");
-				getToSpot();
-				barricade();
-			}
-		} catch(GameActionException e) {
-			System.out.println(rc.getType() + " Exception");
-			e.printStackTrace();
+	protected void run() {
+		if(terraformer) {
+			equalizeLandscape();
+			barricadeOuter();
+		} else {
+			getToSpot();
+			barricade();
 		}
 	}
 
-	private void getToSpot() throws GameActionException {
+	private void getToSpot() {
 		rc.setIndicatorDot(landscaperSpots.get(0), 255, 0, 0);
 		target = landscaperSpots.remove(0);
-		while(landscaperSpots.size() > 0 && !loc.equals(target) && pathFindTo(target, 20, false, "In Range") && rc.senseRobotAtLocation(target) != null && rc.senseRobotAtLocation(target).type == RobotType.LANDSCAPER) {
-			target = landscaperSpots.remove(0);
-			rc.setIndicatorDot(target, 255, 0, 0);
-		}
-		if(landscaperSpots.size() == 0 && !loc.equals(target) && pathFindTo(target, 20, false, "In Range") && rc.senseRobotAtLocation(target) != null && rc.senseRobotAtLocation(target).type == RobotType.LANDSCAPER) {
-			while(true) {
-				System.out.println("Failed to get to any spot");
-				yield();
+		try {
+			while(landscaperSpots.size() > 0 && !loc.equals(target) && pathFindTo(target, 20, false, "In Range") && rc.senseRobotAtLocation(target) != null && rc.senseRobotAtLocation(target).type == RobotType.LANDSCAPER) {
+				target = landscaperSpots.remove(0);
+				rc.setIndicatorDot(target, 255, 0, 0);
 			}
+			if(landscaperSpots.size() == 0 && !loc.equals(target) && pathFindTo(target, 20, false, "In Range") && rc.senseRobotAtLocation(target) != null && rc.senseRobotAtLocation(target).type == RobotType.LANDSCAPER) {
+				while(true) {
+					System.out.println("Failed to get to any spot");
+					yield();
+				}
+			}
+		} catch (GameActionException e) {
+			System.out.println("Error: Landscaper.getToSpot() Failed!\nrc.senseRobotAtLocation(" + target + ") Failed!");
+			e.printStackTrace();
 		}
 
 		yield();
 		while(!loc.equals(target)) {
-			if(rc.canSenseLocation(target) && rc.senseRobotAtLocation(target) != null && rc.senseRobotAtLocation(target).type == RobotType.LANDSCAPER) {
-				target = landscaperSpots.remove(0);
+			try {
+				if(rc.canSenseLocation(target) && rc.senseRobotAtLocation(target) != null && rc.senseRobotAtLocation(target).type == RobotType.LANDSCAPER) {
+					target = landscaperSpots.remove(0);
+				}
+			} catch (GameActionException e) {
+				System.out.println("Error: Landscaper.getToSpot() Failed!\nrc.senseRobotAtLocation(" + target + ") Failed!");
+				e.printStackTrace();
 			}
 			MapLocation prevLoc = loc;
 			pathFindToOne(target, false, "On");
 			if(loc.equals(prevLoc)) {
-				int[] message = new int[] {117299, loc.x, loc.y, target.x, target.y, -1, -1};
-				while(!rc.canSubmitTransaction(message, 10)) {
-					yield();
-				}
-				rc.submitTransaction(message, 10);
+				submitTransaction(new int[] {teamCode, loc.x, loc.y, target.x, target.y, -1, 9}, 10, true);
 				while(!landscaperSpots.get(0).equals(rc.getLocation())) {
 					yield();
 				}
@@ -91,7 +77,7 @@ public class Landscaper extends Unit {
 		}
 	}
 	
-	private void barricade() throws GameActionException {
+	private void barricade() {
 		Direction placeDirt = Direction.CENTER;
 		Direction mineDir = HQs[0].directionTo(rc.getLocation());
 		if(!rc.onTheMap(rc.adjacentLocation(mineDir)) && !isCardinalDir(mineDir)) {
@@ -100,12 +86,22 @@ public class Landscaper extends Unit {
 		
 		while(true) {
 			if(rc.canDigDirt(mineDir)) {
-				rc.digDirt(mineDir);
+				try {
+					rc.digDirt(mineDir);
+				} catch (GameActionException e) {
+					System.out.println("Error: Landscaper.barricade() Failed!\nrc.digDirt(" + mineDir + ") Failed!");
+					e.printStackTrace();
+				}
 				yield();
 			}
 			
 			while(rc.canDepositDirt(placeDirt)) {
-				rc.depositDirt(placeDirt);
+				try {
+					rc.depositDirt(placeDirt);
+				} catch (GameActionException e) {
+					System.out.println("Error: Landscaper.barricade() Failed!\nrc.depositDirt(" + placeDirt + ") Failed!");
+					e.printStackTrace();
+				}
 				yield();
 			}
 		}
@@ -148,15 +144,15 @@ public class Landscaper extends Unit {
 				try {
 					if(rc.senseElevation(terraform) > 5) {
 						tooHigh.add(terraform);
-					} else if(rc.senseElevation(terraform) < 2) {
+					} else if(rc.senseElevation(terraform) < 2 || rc.senseFlooding(terraform)) {
 						tooLow.add(terraform);
 					}
 				} catch (GameActionException e) {
-					// TODO Auto-generated catch block
+					System.out.println("Error: Landscaper.analyzeTerrain() Failed!\nrc.senseElevation(" + terraform + ") Failed!");
 					e.printStackTrace();
 				}
 			} else {
-				System.out.println("Failed to sense elevation of: " + terraform);
+				System.out.println("Failure: Landscaper.analyzeTerrain()\nFailed to analyze: " + terraform);
 			}
 		}
 	}
@@ -175,6 +171,7 @@ public class Landscaper extends Unit {
 						tooHigh.remove(0);
 					}
 				} catch (GameActionException e) {
+					System.out.println("Error: Landscaper.getDirt() Failed!\nrc.senseElevation(" + tooHigh.get(0) + ") or rc.digDirt(" + dir + ") Failed!");
 					e.printStackTrace();
 				}
 			}
@@ -189,6 +186,7 @@ public class Landscaper extends Unit {
 						rc.digDirt(dir);
 						yield();
 					} catch (GameActionException e) {
+						System.out.println("Error: Landscaper.getDirt() Failed!\nrc.digDirt(" + dir + ") Failed!");
 						e.printStackTrace();
 					}
 				}
@@ -202,7 +200,7 @@ public class Landscaper extends Unit {
 			dir = loc.directionTo(tooLow.get(0));
 			if(pathFindTo(tooLow.get(0), 20, false, "Adj")) {
 				try {
-					while(rc.canDepositDirt(dir) && !senseForBuilding(rc.adjacentLocation(dir)) && rc.getDirtCarrying() > 0 && rc.senseElevation(tooLow.get(0)) < 2) {
+					while(rc.canDepositDirt(dir) && !senseForBuilding(rc.adjacentLocation(dir)) && rc.getDirtCarrying() > 0 && (rc.senseElevation(tooLow.get(0)) < 2 || rc.senseFlooding(tooLow.get(0)))) {
 						rc.depositDirt(dir);
 						yield();
 					}
@@ -210,6 +208,7 @@ public class Landscaper extends Unit {
 						tooLow.remove(0);
 					}
 				} catch (GameActionException e) {
+					System.out.println("Error: Landscaper.putDirt() Failed!\nrc.senseElevation(" + tooLow.get(0) + ") or rc.depositDirt(" + dir + ") Failed!");
 					e.printStackTrace();
 				}
 			}
@@ -224,6 +223,7 @@ public class Landscaper extends Unit {
 						rc.depositDirt(dir);
 						yield();
 					} catch (GameActionException e) {
+						System.out.println("Error: Landscaper.putDirt() Failed!\nrc.depositDirt(" + dir + ") Failed!");
 						e.printStackTrace();
 					}
 				}

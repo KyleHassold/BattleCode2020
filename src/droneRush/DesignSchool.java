@@ -6,25 +6,16 @@ public class DesignSchool extends Building {
 
 	public DesignSchool(RobotController rc) {
 		super(rc);
-		try {
-			checkTransactions();
-		} catch (GameActionException e) {
-			e.printStackTrace();
-		}
+		checkTransactions();
 	}
 
 	@Override
-	protected void run() throws GameActionException {
+	protected void run() {
 		if(terraformer) {
-			System.out.println("I'm a terraformer");
 			while(rc.getTeamSoup() < RobotType.LANDSCAPER.cost + 10 || !buildRobot(RobotType.LANDSCAPER, loc.directionTo(HQs[0]))) {
 				yield();
 			}
-			int[] message = new int[] {117298, HQs[0].x, HQs[0].y, -1, -1, -1, -1};
-			while(!rc.canSubmitTransaction(message, 10)) {
-				yield();
-			}
-			rc.submitTransaction(message, 10);
+			submitTransaction(new int[] {teamCode, HQs[0].x, HQs[0].y, -1, -1, -1, 8}, 10, true);
 		}
 		
 		int landscapers = 0;
@@ -41,7 +32,7 @@ public class DesignSchool extends Building {
 					landscapers++;
 				}
 			} catch(GameActionException e) {
-                System.out.println(rc.getType() + " Exception");
+				System.out.println("Error: DesignSchool.run() Failed!\nrc.buildRobot(landscaper, " + dir + ") Failed!");
                 e.printStackTrace();
 			}
 			yield();

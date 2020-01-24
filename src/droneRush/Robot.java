@@ -11,18 +11,16 @@ import battlecode.common.*;
 //-------------------------------------------------- INFO --------------------------------------
 /*
 BLOCKCHAIN CODES:
-117290 = Soup
-117291 = HQ Location
-117292 = Refinery Location
-117293 = Vaporator Location
-117294 = Fulfillment Center Location
-117295 = Design School Location
-117296 = Net Gun Location
-BLOCKCHAIN PROTOCOL:
-for soup:
-  [code, x, y, amountOfSoup, -1, -1, -1]
-for other stuff:
-  [code, x, y, -1, -1, -1, -1]
+0 = Soup
+1 = HQ Location
+2 = Refinery Location
+3 = Vaporator Location
+4 = Fulfillment Center Location
+5 = Design School Location
+6 = Net Gun Location
+8 = Terraformer
+9 = Move Request
+
 MAP INT[]:
 	Water, Dirt, Soup, Base
 	Building:
@@ -53,6 +51,7 @@ public abstract class Robot {
 	boolean terraformer = false;
 	int mapH;
 	int mapW;
+	int teamCode;
 
 
 	// Super constructor
@@ -66,10 +65,14 @@ public abstract class Robot {
 		directions.add(Direction.SOUTHWEST);
 		directions.add(Direction.WEST);
 		directions.add(Direction.NORTHWEST);
+		
+		teamCode = 123789;
+		
+		loc = rc.getLocation();
 		mapH = rc.getMapHeight();
 		mapW = rc.getMapWidth();
-		loc = rc.getLocation();
 		center = new MapLocation((mapW - 1) /2, (mapH - 1) / 2);
+		
 		for(RobotInfo robo : rc.senseNearbyRobots()) {
 			if(robo.type == RobotType.HQ && robo.team == rc.getTeam()) {
 				HQs[0] = robo.location;
@@ -77,47 +80,73 @@ public abstract class Robot {
 			}
 		}
 		if(HQs[0] == null) {
-			System.out.println("Failed to locate HQ");
+			System.out.println("Failure: Robot.Robot()\nFailed to sense HQ");
 		}
 	}
 
-	// Force all sub-classes to implement a run() method
-	protected abstract void run() throws GameActionException;
+	//---- Methods for all Robots -----//
 
-	// Methods for all Robots
-	protected boolean buildRobot(RobotType rType, Direction prefDir) throws GameActionException {
+	// Force all sub-classes to implement a run() method
+	protected abstract void run();
+	
+	/*
+	 * Attempts to build a robot of the given type
+	 * Prioritizes the give Direction but will check all
+	 * Returns true if successful and false otherwise
+	 */
+	protected boolean buildRobot(RobotType rType, Direction prefDir) {
 		if(rc.getTeamSoup() < rType.cost) {
 			return false;
 		}
 
-		int[] baseDir = {0,1,2,-1,-2,3,-3,4};
-		int dirI = directions.indexOf(prefDir);
-
-		Direction dir;
-		for(int dDir : baseDir) {
-			dir = directions.get((dirI + dDir + 8) % 8);
+		Direction[] prefDirs = getPrefDir(prefDir);
+		for(Direction dir : prefDirs) {
 			if(rc.canBuildRobot(rType, dir)) {
-				rc.buildRobot(rType, dir);
-				return true;
+				try {
+					rc.buildRobot(rType, dir);
+					return true;
+				} catch (GameActionException e) {
+					System.out.println("Error: Robot.buildRobot(" + rType + ", " + dir + ") Failed!");
+					e.printStackTrace();
+					return false;
+				}
 			}
 		}
+		System.out.println("Failure: Robot.buildRobot(" + rType + ", " + prefDir + ")\nFailed to build robot");
 		return false;
 
 	}
-
-	protected MapLocation findAdjacentRobot(RobotType type, Team team) throws GameActionException {
+	
+	/*
+	 * Searches adjacent tiles for the give robot type and team
+	 * If team is null, either team works
+	 * Return the found location or null if not found
+	 */
+	protected MapLocation findAdjRobot(RobotType type, Team team) {
 		for(Direction dir : directions) {
 			MapLocation adj = rc.adjacentLocation(dir);
 			if(rc.canSenseLocation(adj)) {
-				RobotInfo robo = rc.senseRobotAtLocation(adj);
-				if(robo != null && (robo.type == type || (robo.type == RobotType.REFINERY && robo.type == RobotType.HQ)) && (team == null || robo.team == team)) {
+				RobotInfo robo = null;
+				try {
+					robo = rc.senseRobotAtLocation(adj);
+				} catch (GameActionException e) {
+					System.out.println("Error: Robot.findAdjRobot(" + adj + ") Failed!");
+					e.printStackTrace();
+				}
+				if(robo != null && (team == null || robo.team == team)) {
 					return robo.location;
 				}
 			}
 		}
+		System.out.println("Failure: Robot.findAdjRobot(" + type + ", " + team + ")\nFailed to find robot");
 		return null;
 	}
 	
+	/*
+	 * Calculates the best soup
+	 * Best soup is determined by distance to current location and the refinery/HQ
+	 * Return the MapLocation of the lowest score
+	 */
 	protected MapLocation bestSoup(int rSq) {
 		MapLocation bestSoup = null;
 		int bestScore = 0;
@@ -132,22 +161,37 @@ public abstract class Robot {
 		return bestSoup;
 	}
 	
+	/*
+	 * Returns true if the give direction is a cardinal Direction and false otherwise
+	 */
 	protected boolean isCardinalDir(Direction dir) {
 		return dir.equals(Direction.NORTH) || dir.equals(Direction.EAST) || dir.equals(Direction.SOUTH) || dir.equals(Direction.WEST);
 	}
 	
+	/*
+	 * Senses a given location to check if a building exists there
+	 * Does not consider units in this
+	 * Returns true if a building exists there and false otherwise
+	 */
 	protected boolean senseForBuilding(MapLocation potBuilding) {
 		if(rc.canSenseLocation(potBuilding)) {
 			try {
 				RobotInfo robo = rc.senseRobotAtLocation(potBuilding);
 				return robo != null && (robo.type == RobotType.DESIGN_SCHOOL || robo.type == RobotType.FULFILLMENT_CENTER || robo.type == RobotType.REFINERY || robo.type == RobotType.HQ);
 			} catch (GameActionException e) {
+				System.out.println("Error: Robot.senseForBuilding(" + potBuilding + ") Failed!");
 				e.printStackTrace();
 			}
 		}
 		return false;
 	}
 	
+	/*
+	 * Senses the surroundings for soup and saves any new soup
+	 * Stops if there is not enough processing power left
+	 * Based on HQ's processing
+	 * Return true is all soup has been processed and false if otherwise
+	 */
 	protected boolean senseNewSoup(boolean first) {
 		MapLocation[] newSoup = rc.senseNearbySoup();
 		for(MapLocation s : newSoup) {
@@ -162,71 +206,107 @@ public abstract class Robot {
 		return true;
 	}
 	
+	protected Direction[] getPrefDir(Direction initDir) {
+		Direction[] results = new Direction[8];
+        int[] offsets = {1, 7, 2, 6, 3, 5, 4};
+        int baseDir = directions.indexOf(initDir);
+        
+        results[0] = initDir;
+        for(int i = 0; i < offsets.length; i++) {
+        	results[i + 1] = directions.get((baseDir + offsets[i]) % 8);
+        }
+        return results;
+	}
+	
+	/*
+	 * Finishes the current turn, check transactions, and repeats
+	 * Repeats until cooldown < 1
+	 */
 	protected void yield() {
-		try {
+		Clock.yield();
+		checkTransactions();
+		while(rc.getCooldownTurns() >= 1) {
 			Clock.yield();
 			checkTransactions();
-			while(rc.getCooldownTurns() >= 1) {
-				Clock.yield();
-				checkTransactions();
-			}
-		} catch (GameActionException e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
 		}
 	}
 
 	// Blockchain
-	protected void checkTransactions() throws GameActionException {
-		Transaction[] trans = rc.getBlock(rc.getRoundNum()-1);
+	
+	/*
+	 * Checks the previous turn's BlockChain message
+	 * Analyzes each message there
+	 */
+	protected void checkTransactions() {
+		Transaction[] trans = null;
+		try {
+			trans = rc.getBlock(rc.getRoundNum()-1);
+		} catch (GameActionException e) {
+			System.out.println("Error: Robot.checkTransactions() Failed!");
+			e.printStackTrace();
+		}
 		for(Transaction t : trans) {
 			analyzeTransaction(t);
 		}
 	}
-
+	
+	/*
+	 * Analyzes a single message checking that it is our team's
+	 * Based on the last number, save the information respectively
+	 */
 	private void analyzeTransaction(Transaction t) {
 		MapLocation loc;
-		if(t.getMessage()[0] == 117290) { // Soup
+		if(t.getMessage()[0] != teamCode) {
+			return;
+		}
+		if(t.getMessage()[6] == 0) { // Soup
 			loc = new MapLocation(t.getMessage()[1], t.getMessage()[2]);
 			if(!map.containsKey(loc)) {
 				soup.add(loc);
 				map.put(loc, new int[] {0,0,t.getMessage()[3],0});
 			}
 			System.out.println("Soup Message Recieved!");
-		} else if(t.getMessage()[0] == 117291) { // HQs
+			
+		} else if(t.getMessage()[6] == 1) { // HQs
 			loc = new MapLocation(t.getMessage()[1], t.getMessage()[2]);
 			HQs[1] = loc;
 			map.put(loc, new int[] {0,0,0,-1});
 			System.out.println("HQ Message Recieved!");
-		} else if(t.getMessage()[0] == 117292) { // Refinery
+			
+		} else if(t.getMessage()[6] == 2) { // Refinery
 			loc = new MapLocation(t.getMessage()[1], t.getMessage()[2]);
 			ref = loc;
 			map.put(loc, new int[] {0,0,0,2});
 			System.out.println("Refinery Message Recieved!");
-		} else if(t.getMessage()[0] == 117293) { // Vaporator
+			
+		} else if(t.getMessage()[6] == 3) { // Vaporator
 			loc = new MapLocation(t.getMessage()[1], t.getMessage()[2]);
 			vaporator = loc;
 			map.put(loc, new int[] {0,0,0,3});
 			System.out.println("Vaporator Message Recieved!");
-		} else if(t.getMessage()[0] == 117294) { // Fulfillment Center
+			
+		} else if(t.getMessage()[6] == 4) { // Fulfillment Center
 			loc = new MapLocation(t.getMessage()[1], t.getMessage()[2]);
 			vaporator = loc;
 			map.put(loc, new int[] {0,0,0,4});
 			System.out.println("Fulfillment Center Message Recieved!");
-		} else if(t.getMessage()[0] == 117295) { // Design School
+			
+		} else if(t.getMessage()[6] == 5) { // Design School
 			loc = new MapLocation(t.getMessage()[1], t.getMessage()[2]);
 			if(desSch == null) {
 				desSch = loc;
 			}
 			map.put(loc, new int[] {0,0,0,5});
 			System.out.println("Design School Message Recieved!");
-		} else if(t.getMessage()[0] == 117298) { // Terraformer
+			
+		} else if(t.getMessage()[6] == 8) { // Terraformer
 			loc = new MapLocation(t.getMessage()[1], t.getMessage()[2]);
 			HQs[0] = loc;
 			terraformer = true;
 			map.put(loc, new int[] {0,0,0,1});
 			System.out.println("Terraformer Message Recieved!");
-		} else if(t.getMessage()[0] == 117299) { // Requires Movement
+			
+		} else if(t.getMessage()[6] == 9) { // Requires Movement
 			MapLocation start = new MapLocation(t.getMessage()[1], t.getMessage()[2]);
 			MapLocation end = null;
 			if(t.getMessage()[3] != -1) {
@@ -235,5 +315,23 @@ public abstract class Robot {
 			moveReqs.add(new MapLocation[] {start, end});
 			System.out.println("Move Request Message Recieved!");
 		}
+	}
+	
+	protected boolean submitTransaction(int[] message, int cost, boolean wait) {
+		while(wait && !rc.canSubmitTransaction(message, cost)) {
+			yield();
+		}
+		
+		if(rc.canSubmitTransaction(message, cost)) {
+			try {
+				rc.submitTransaction(message, cost);
+			} catch (GameActionException e) {
+				System.out.println("Error: Robot.submitTransaction(" + message + ", " + cost + ", " + wait + ") Failed!");
+				e.printStackTrace();
+			}
+			return true;
+		}
+		System.out.println("Failure: Robot.submitTransaction(" + message + ", " + cost + ", " + wait + ")\nFailed to submit transaction");
+		return false;
 	}
 }

@@ -18,12 +18,13 @@ public class FulfillmentCenter extends Building {
 				dir = Direction.SOUTHWEST;
 			}
 		} catch (GameActionException e) {
+			System.out.println("Error: FulfillmentCenter.FulfillmentCenter() Failed!\nrc.senseRobotAtLocation(...) Failed!");
 			e.printStackTrace();
 		}
 	}
 
 	@Override
-	protected void run() throws GameActionException {
+	protected void run() {
 		int drones = 0;
 		while(true) {
 			try {
@@ -32,7 +33,7 @@ public class FulfillmentCenter extends Building {
 					drones++;
 				}
 			} catch(GameActionException e) {
-                System.out.println(rc.getType() + " Exception");
+				System.out.println("Error: FulfillmentCenter.run() Failed!\nrc.buildRobot(Delivery Drone, " + dir.rotateLeft() + ") Failed!");
                 e.printStackTrace();
 			}
 			yield();

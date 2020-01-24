@@ -28,33 +28,27 @@ public class Drone extends Unit {
 		} else {
 			job = "Scout";
 		}
-		System.out.println(job);
 	}
 
 	@Override
-	protected void run() throws GameActionException {
+	protected void run() {
 
 		while(true) {
-			try {
-				if(job.equals("Scout")) {
-					runScout();
-				} else if(job.equals("Defense")) {
-					runDefend();
-				} else if(job.equals("Attacker")) {
-					runAttack();
-				} else if(job.equals("Mover")) {
-					runMover();
-				} else {
-					System.out.println("Failed");
-				}
-			} catch(GameActionException e) {
-                System.out.println(rc.getType() + " Exception");
-                e.printStackTrace();
+			if(job.equals("Scout")) {
+				runScout();
+			} else if(job.equals("Defense")) {
+				runDefend();
+			} else if(job.equals("Attacker")) {
+				runAttack();
+			} else if(job.equals("Mover")) {
+				runMover();
+			} else {
+				System.out.println("Failure: Drone.run()\nFailed to assign job");
 			}
 		}
 	}
 	
-	private void runScout() throws GameActionException {
+	private void runScout() {
 		MapLocation[] targets = new MapLocation[3];
 		targets[0] = new MapLocation(mapW - HQs[0].x - 1, HQs[0].y);
 		targets[1] = new MapLocation(mapW - HQs[0].x - 1, mapH - HQs[0].y - 1);
@@ -63,19 +57,22 @@ public class Drone extends Unit {
 		
 		while(count < targets.length) {
 			if(rc.canSenseLocation(targets[count])) {
-				RobotInfo robo = rc.senseRobotAtLocation(targets[count]);
+				RobotInfo robo = null;
+				try {
+					robo = rc.senseRobotAtLocation(targets[count]);
+				} catch (GameActionException e) {
+					System.out.println("Error: Drone.runScout() Failed!\nrc.senseRobotAtLocation(" + targets[count] + ") Failed!");
+					e.printStackTrace();
+				}
 				if(robo != null && robo.type == RobotType.HQ && robo.team == rc.getTeam().opponent()) {
 					HQs[1] = targets[count];
 					map.put(targets[count], new int[] {0,0,0,-1});
-					int[] message = new int[] {117291, targets[count].x, targets[count].y, -1, -1, -1, -1};
-					while(!rc.canSubmitTransaction(message, 10)) {
-						yield();
-					}
-					rc.submitTransaction(message, 10);
+					
+					submitTransaction(new int[] {teamCode, targets[count].x, targets[count].y, -1, -1, -1, 1}, 10, true);
+					
 					job = "Mover";
 					break;
 				} else {
-					System.out.println("Next");
 					count++;
 				}
 			} else {
@@ -84,7 +81,7 @@ public class Drone extends Unit {
 		}
 	}
 	
-	private void runDefend() throws GameActionException {
+	private void runDefend() {
 		pathFindTo(HQs[0], 80, false, "In Range");
 		while(true) {
 			yield();
@@ -95,7 +92,7 @@ public class Drone extends Unit {
 		
 	}
 	
-	private void runMover() throws GameActionException {
+	private void runMover() {
 		while(true) {
 			// Wait for request
 			while(moveReqs.size() == 0) {
@@ -115,56 +112,76 @@ public class Drone extends Unit {
 			}
 			
 			// Move to target robot
-			System.out.println("Moving to target");
 			if(pathFindTo(moveReqs.get(0)[0], 100, false, "Adj") && rc.canSenseLocation(moveReqs.get(0)[0])) {
 				rc.setIndicatorDot(moveReqs.get(0)[0], 120, 120, 120);
-				if(rc.senseRobotAtLocation(moveReqs.get(0)[0]) != null) {
-					int roboId = rc.senseRobotAtLocation(moveReqs.get(0)[0]).ID;
-					while(!rc.canPickUpUnit(roboId)) {
+				RobotInfo robo = null;
+				try {
+					robo = rc.senseRobotAtLocation(moveReqs.get(0)[0]);
+				} catch (GameActionException e) {
+					System.out.println("Error: Drone.runMover() Failed!\nrc.senseRobotAtLocation(" + moveReqs.get(0)[0] + ") Failed!");
+					e.printStackTrace();
+				}
+				if(robo != null) {
+					while(!rc.canPickUpUnit(robo.ID)) {
 						yield();
 					}
-					rc.pickUpUnit(roboId);
+					try {
+						rc.pickUpUnit(robo.ID);
+					} catch (GameActionException e) {
+						System.out.println("Error: Drone.runMover() Failed!\nrc.pickUpUnit(" + robo.ID + ") Failed!");
+						e.printStackTrace();
+					}
 					
 					// Move to desired location
 					MapLocation dropOff = moveReqs.get(0)[1] != null ? moveReqs.get(0)[1] : landscaperSpots.remove(0);
-					System.out.println("Moving to drop off: " + dropOff);
 					rc.setIndicatorDot(dropOff, 120, 120, 120);
-					while(moveReqs.get(0)[1] == null && pathFindTo(dropOff, 50, false, "In Range") && rc.canSenseLocation(dropOff) && !loc.equals(dropOff) && rc.senseRobotAtLocation(dropOff) != null) {
-						System.out.println("Yes");
-						if(rc.senseRobotAtLocation(dropOff).type == RobotType.LANDSCAPER) {
-							dropOff = landscaperSpots.remove(0);
-						} else {
-							landscaperSpots.add(dropOff);
-							dropOff = landscaperSpots.remove(0);
+					try {
+						while(moveReqs.get(0)[1] == null && pathFindTo(dropOff, 50, false, "In Range") && rc.canSenseLocation(dropOff) && !loc.equals(dropOff) && rc.senseRobotAtLocation(dropOff) != null) {
+							if(rc.senseRobotAtLocation(dropOff).type == RobotType.LANDSCAPER) {
+								dropOff = landscaperSpots.remove(0);
+							} else {
+								landscaperSpots.add(dropOff);
+								dropOff = landscaperSpots.remove(0);
+							}
+							rc.setIndicatorDot(dropOff, 120, 120, 120);
 						}
-						rc.setIndicatorDot(dropOff, 120, 120, 120);
+					} catch (GameActionException e1) {
+						System.out.println("Error: Drone.runMover() Failed!\nrc.senseRobotAtLocation(" + dropOff + ") Failed!");
+						e1.printStackTrace();
 					}
 					if(pathFindTo(dropOff, 50, false, "Adj")) {
 						yield();
 						while(loc.equals(dropOff)) {
-							System.out.println("Need to move");
 							for(Direction dir : Direction.allDirections()) {
 								if(rc.canMove(dir)) {
-									rc.move(dir);
-									yield();
-									loc = rc.getLocation();
-									break;
+									try {
+										rc.move(dir);
+										loc = rc.getLocation();
+										yield();
+										break;
+									} catch (GameActionException e) {
+										System.out.println("Error: Drone.runMover() Failed!\nrc.move(" + dir + ") Failed!");
+										e.printStackTrace();
+									}
 								}
 							}
 						}
 
 						// Drop off
-						System.out.println("Dropping off");
 						while(!rc.canDropUnit(loc.directionTo(dropOff))) {
 							yield();
 						}
-						rc.dropUnit(loc.directionTo(dropOff));
+						try {
+							rc.dropUnit(loc.directionTo(dropOff));
+						} catch (GameActionException e) {
+							System.out.println("Error: Drone.runMover() Failed!\nrc.dropUnit(" + loc.directionTo(dropOff) + ") Failed!");
+							e.printStackTrace();
+						}
 					}
 				}
 			}
 			
 			// Task completed
-			System.out.println("Done");
 			moveReqs.remove(0);
 		}
 	}
