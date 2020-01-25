@@ -15,16 +15,20 @@ public class DesignSchool extends Building {
 			while(rc.getTeamSoup() < RobotType.LANDSCAPER.cost + 10 || !buildRobot(RobotType.LANDSCAPER, loc.directionTo(HQs[0]))) {
 				yield();
 			}
+			
 			submitTransaction(new int[] {teamCode, HQs[0].x, HQs[0].y, -1, -1, -1, 8}, 10, true);
 		}
 		
 		int landscapers = 0;
+		
+		// Spawn direction is either South or North
 		Direction dir = loc.directionTo(HQs[0]);
 		if(dir == Direction.SOUTHEAST || dir == Direction.SOUTHWEST) {
 			dir = Direction.SOUTH;
 		} else {
 			dir = Direction.NORTH;
 		}
+		
 		while(true) {
 			try {
 				if(landscapers < 8 && (ref != null || rc.getRoundNum() > 300) && rc.canBuildRobot(RobotType.LANDSCAPER, dir)) {

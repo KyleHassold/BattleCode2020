@@ -26,6 +26,7 @@ public class FulfillmentCenter extends Building {
 	@Override
 	protected void run() {
 		int drones = 0;
+		
 		while(true) {
 			try {
 				if(drones < 1 && rc.canBuildRobot(RobotType.DELIVERY_DRONE, dir.rotateLeft())) {

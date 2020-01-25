@@ -16,7 +16,7 @@ public class HQ extends Building {
 	@Override
 	protected void run() {
 		// Sense for the surrounding soup
-		doneSensing = senseNewSoup(true);
+		doneSensing = senseNewSoup(true, false, 5000);
 		
 		// If there is soup sensed, get the best
 		if(!soup.isEmpty()) {
@@ -32,7 +32,7 @@ public class HQ extends Building {
 			
 			// Sense for more soup if there is some left
 			if(!doneSensing) {
-				doneSensing = senseNewSoup(false);
+				doneSensing = senseNewSoup(false, false, 5000);
 			}
 
 			yield();

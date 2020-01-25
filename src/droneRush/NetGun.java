@@ -14,6 +14,7 @@ public class NetGun extends Building {
 
 		while(true) {
 			RobotInfo[] robots = rc.senseNearbyRobots(rc.getCurrentSensorRadiusSquared(), rc.getTeam().opponent());
+			
 			for(RobotInfo robo : robots) {
 				try {
 					if(robo.type == RobotType.DELIVERY_DRONE && rc.canShootUnit(robo.ID)) {
@@ -26,6 +27,7 @@ public class NetGun extends Building {
 					e.printStackTrace();
 				}
 			}
+			
 			yield();
 		}
 	}

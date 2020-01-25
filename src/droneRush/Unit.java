@@ -52,6 +52,7 @@ public abstract class Unit extends Robot {
 		if(giveUp >= moveLimit) {
 			System.out.println("Failure: Unit.pathFindTo(" + target + ", " + moveLimit + ", " + avoid + ", " + distance + ")\nFailed to move to target");
 		}
+		
 		return giveUp < moveLimit;
 	}
 	
@@ -66,8 +67,11 @@ public abstract class Unit extends Robot {
 		int giveUp = 0;
 		int limit = (int) Math.pow(loc.distanceSquaredTo(randSpot), 0.6);
 		
+		// While there isn't any satisfactory soup
 		while((!farSoup && soup.isEmpty()) || (farSoup && bestSoup(30) == null)) {
+			// If there are still moves left and the move put the robot in spot
 			if(giveUp > limit || pathFindToOne(randSpot, true, "On")) {
+				// Select a new spot and continue
 				randSpot = getRandSpot();
 				rc.setIndicatorDot(randSpot, 255, 0, 0);
 				giveUp = 0;
@@ -89,15 +93,15 @@ public abstract class Unit extends Robot {
 			return true;
 		}
 		
-        int[] offsets = {0, 1, -1, 2, -2, 3, -3, 4};
-		int baseDir = directions.indexOf(loc.directionTo(target));
+		Direction[] prefDirs = getPrefDir(loc.directionTo(target));
 		Direction moveDir = Direction.CENTER;
-		MapLocation moveLoc;
-		for(int offset : offsets) {
-			moveDir = directions.get((baseDir + offset + 8) % 8);
-			moveLoc = loc.translate(moveDir.dx, moveDir.dy);
+		
+		// Check if you can move in each direction
+		for(Direction dir : prefDirs) {
+			MapLocation moveLoc = rc.adjacentLocation(dir);
 			if(Collections.frequency(path, moveLoc) < 2) {
-				if(canMoveComplete(moveDir, avoid, target)) {
+				if(canMoveComplete(dir, avoid, target)) {
+					moveDir = dir;
 					break;
 				}
 			}
@@ -106,6 +110,7 @@ public abstract class Unit extends Robot {
 		if(rc.canMove(moveDir)) {
 			move(moveDir);
 		}
+		
 		return atGoal(target, distance);
 	}
 	
@@ -115,6 +120,7 @@ public abstract class Unit extends Robot {
 	 * Senses for soup if it's a miner
 	 */
 	private void move(Direction dir) {
+		// Move
 		try {
 			rc.move(dir);
 		} catch (GameActionException e) {
@@ -122,33 +128,16 @@ public abstract class Unit extends Robot {
 			e.printStackTrace();
 		}
 		
+		// Save the previous location to the path and edit the path if necessary
 		path.add(loc);
 		if(path.size() > 15) {
 			path.remove(0);
 		}
 		loc = rc.getLocation();
 		
+		// Sense for soup if the robot is a miner
 		if(rc.getType() == RobotType.MINER) {
-			MapLocation[] newSoup = rc.senseNearbySoup();
-			for(MapLocation s : newSoup) {
-				if(!map.containsKey(s)) {
-					soup.add(s);
-					
-					int soupAmount = 1;
-					if(rc.canSenseLocation(s)) {
-						try {
-							soupAmount = rc.senseSoup(s);
-						} catch (GameActionException e) {
-							System.out.println("Error: Unit.move() Failed!\nrc.senseSoup(" + s + ") Failed!");
-							e.printStackTrace();
-						}
-					}
-					
-					map.put(s, new int[] {0, 0, soupAmount, 0});
-					
-					submitTransaction(new int[] {teamCode, s.x, s.y, map.get(s)[2], -1, -1, 0}, 1, false);
-				}
-			}
+			senseNewSoup(false, true, 100);
 		}
 	}
 	
@@ -160,24 +149,26 @@ public abstract class Unit extends Robot {
 	 * Returns the MapLocation of the random spot
 	 */
 	private MapLocation getRandSpot() {
-		int x = rand.nextInt(center.x - (int) Math.pow(rc.getType().sensorRadiusSquared, 0.5)) + (int) Math.pow(rc.getType().sensorRadiusSquared, 0.5);
-		int y = rand.nextInt(center.y - (int) Math.pow(rc.getType().sensorRadiusSquared, 0.5)) + (int) Math.pow(rc.getType().sensorRadiusSquared, 0.5);
+		// Get an x,y in the first quarter not near the walls
+		int r = (int) Math.pow(rc.getType().sensorRadiusSquared, 0.5);
+		int x = rand.nextInt(center.x - r) + r;
+		int y = rand.nextInt(center.y - r) + r;
 		double quarter = rand.nextDouble();
 		
-		if(quarter < 0.4) {
+		if(quarter < 0.4) { // move horizontally
 			if(loc.x < center.x) {
-				x += center.x - (int) Math.pow(rc.getType().sensorRadiusSquared, 0.5);
+				x += center.x - r;
 			}
-		} else if(quarter < 0.8) {
+		} else if(quarter < 0.8) { // move vertically
 			if(loc.y < center.y) {
-				y += center.y - (int) Math.pow(rc.getType().sensorRadiusSquared, 0.5);
+				y += center.y - r;
 			}
 		} else {
-			if(loc.x < center.x) {
-				x += center.x - (int) Math.pow(rc.getType().sensorRadiusSquared, 0.5);
+			if(loc.x < center.x) { // move diagonally
+				x += center.x - r;
 			}
 			if(loc.y < center.y) {
-				y += center.y - (int) Math.pow(rc.getType().sensorRadiusSquared, 0.5);
+				y += center.y - r;
 			}
 		}
 		
@@ -200,6 +191,7 @@ public abstract class Unit extends Robot {
 		if(ref != null && rc.getType() == RobotType.MINER && !moveAwayFromHQ(moveDir)) {
 			return false;
 		}
+		
 		if(rc.getType() != RobotType.DELIVERY_DRONE) {
 			try {
 				return rc.canMove(moveDir) && !rc.senseFlooding(rc.adjacentLocation(moveDir))
@@ -220,13 +212,19 @@ public abstract class Unit extends Robot {
 	 */
 	protected boolean moveAwayFromHQ(Direction dir) {
 		MapLocation adj = loc.translate(dir.dx, dir.dy);
+		
+		// If the adjacent spot is in the range of the HQ
 		if(adj.x <= HQs[0].x + 2 && adj.x >= HQs[0].x - 2 && adj.y <= HQs[0].y + 2 && adj.y >= HQs[0].y - 2) {
 			Direction awayDir = HQs[0].directionTo(loc);
+			
+			// If the direction of movement is away from the HQ
 			if(dir.equals(awayDir) || dir.equals(awayDir.rotateRight()) || dir.equals(awayDir.rotateLeft())) {
 				return true;
 			}
+			
 			return false;
 		}
+		
 		return true;
 	}
 	/*
@@ -236,13 +234,15 @@ public abstract class Unit extends Robot {
 	private boolean potFlooding(MapLocation loc) {
 		int round = rc.getRoundNum() + 5;
 		int waterLevel = (int) (Math.pow(Math.E, 0.0028*round - 1.38*Math.sin(0.00157*round - 1.73) + 1.38*Math.sin(-1.78)) - 1);
+		
 		try {
 			return rc.senseElevation(loc) <= waterLevel;
 		} catch (GameActionException e) {
 			System.out.println("Error: Unit.potFlooding(" + loc + ") Failed!\nrc.senseElevation() Failed!");
 			e.printStackTrace();
-			return false;
 		}
+		
+		return false;
 	}
 	
 	/*
@@ -250,11 +250,13 @@ public abstract class Unit extends Robot {
 	 */
 	private boolean avoidWalls(Direction dir) {
 		MapLocation adj = rc.adjacentLocation(dir);
+		
 		if(adj.x < Math.min(loc.x, Math.pow(rc.getType().sensorRadiusSquared, 0.5)) || adj.x > Math.max(loc.x, rc.getMapWidth() - Math.pow(rc.getType().sensorRadiusSquared, 0.5))) {
 			return false;
 		} else if (adj.y < Math.min(loc.y, Math.pow(rc.getType().sensorRadiusSquared, 0.5)) || adj.y > Math.max(loc.y, rc.getMapHeight() - Math.pow(rc.getType().sensorRadiusSquared, 0.5))) {
 			return false;
 		}
+		
 		return true;
 	}
 }

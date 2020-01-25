@@ -9,6 +9,7 @@ public class Landscaper extends Unit {
 
 	public Landscaper(RobotController rc) {
 		super(rc);
+		
 		desSch = findAdjRobot(RobotType.DESIGN_SCHOOL, null);
 		if(HQs[0] == null) {
 			fulCent = findAdjRobot(RobotType.FULFILLMENT_CENTER, null);
@@ -38,11 +39,14 @@ public class Landscaper extends Unit {
 	private void getToSpot() {
 		rc.setIndicatorDot(landscaperSpots.get(0), 255, 0, 0);
 		target = landscaperSpots.remove(0);
+		
+		// Keep trying to go to spots on the wall to fill in the wall
 		try {
 			while(landscaperSpots.size() > 0 && !loc.equals(target) && pathFindTo(target, 20, false, "In Range") && rc.senseRobotAtLocation(target) != null && rc.senseRobotAtLocation(target).type == RobotType.LANDSCAPER) {
 				target = landscaperSpots.remove(0);
 				rc.setIndicatorDot(target, 255, 0, 0);
 			}
+			
 			if(landscaperSpots.size() == 0 && !loc.equals(target) && pathFindTo(target, 20, false, "In Range") && rc.senseRobotAtLocation(target) != null && rc.senseRobotAtLocation(target).type == RobotType.LANDSCAPER) {
 				while(true) {
 					System.out.println("Failed to get to any spot");
@@ -55,7 +59,10 @@ public class Landscaper extends Unit {
 		}
 
 		yield();
+		
+		// Move to selected target
 		while(!loc.equals(target)) {
+			// If the target is now filled, move on
 			try {
 				if(rc.canSenseLocation(target) && rc.senseRobotAtLocation(target) != null && rc.senseRobotAtLocation(target).type == RobotType.LANDSCAPER) {
 					target = landscaperSpots.remove(0);
@@ -64,8 +71,11 @@ public class Landscaper extends Unit {
 				System.out.println("Error: Landscaper.getToSpot() Failed!\nrc.senseRobotAtLocation(" + target + ") Failed!");
 				e.printStackTrace();
 			}
+			
 			MapLocation prevLoc = loc;
 			pathFindToOne(target, false, "On");
+			
+			// If movement failed
 			if(loc.equals(prevLoc)) {
 				submitTransaction(new int[] {teamCode, loc.x, loc.y, target.x, target.y, -1, 9}, 10, true);
 				while(!landscaperSpots.get(0).equals(rc.getLocation())) {
@@ -73,6 +83,7 @@ public class Landscaper extends Unit {
 				}
 				loc = rc.getLocation();
 			}
+			
 			yield();
 		}
 	}
@@ -80,11 +91,15 @@ public class Landscaper extends Unit {
 	private void barricade() {
 		Direction placeDirt = Direction.CENTER;
 		Direction mineDir = HQs[0].directionTo(rc.getLocation());
+		
+		// Check that the mining location is valid
 		if(!rc.onTheMap(rc.adjacentLocation(mineDir)) && !isCardinalDir(mineDir)) {
 			mineDir = rc.onTheMap(rc.adjacentLocation(mineDir.rotateRight().rotateRight())) ? mineDir.rotateRight().rotateRight() : mineDir.rotateLeft().rotateLeft();
 		}
 		
+		// Forever, mine and place dirt
 		while(true) {
+			// Dig dirt
 			if(rc.canDigDirt(mineDir)) {
 				try {
 					rc.digDirt(mineDir);
@@ -92,9 +107,11 @@ public class Landscaper extends Unit {
 					System.out.println("Error: Landscaper.barricade() Failed!\nrc.digDirt(" + mineDir + ") Failed!");
 					e.printStackTrace();
 				}
+				
 				yield();
 			}
 			
+			// Place dirt
 			while(rc.canDepositDirt(placeDirt)) {
 				try {
 					rc.depositDirt(placeDirt);
@@ -102,6 +119,7 @@ public class Landscaper extends Unit {
 					System.out.println("Error: Landscaper.barricade() Failed!\nrc.depositDirt(" + placeDirt + ") Failed!");
 					e.printStackTrace();
 				}
+				
 				yield();
 			}
 		}
@@ -116,9 +134,9 @@ public class Landscaper extends Unit {
 	private void equalizeLandscape() {
 		List<MapLocation> tooHigh = new ArrayList<MapLocation>();
 		List<MapLocation> tooLow = new ArrayList<MapLocation>();
+		
 		analyzeTerrain(tooHigh, tooLow);
-		System.out.println(tooHigh);
-		System.out.println(tooLow);
+		
 		while(!tooHigh.isEmpty() || !tooLow.isEmpty()) {
 			getDirt(tooHigh);
 			putDirt(tooLow);
@@ -127,11 +145,11 @@ public class Landscaper extends Unit {
 	
 	private void analyzeTerrain(List<MapLocation> tooHigh, List<MapLocation> tooLow) {
 		Direction toCenter = HQs[0].directionTo(center);
+		
 		if(isCardinalDir(toCenter)) {
 			toCenter = toCenter.rotateRight();
 		}
-		new MapLocation(HQs[0].x + 2 * toCenter.dx, HQs[0].y + toCenter.dy);
-		new MapLocation(HQs[0].x + toCenter.dx, HQs[0].y + 2 * toCenter.dy);
+		
 		MapLocation[] toBeFormed = new MapLocation[] {
 				HQs[0].translate(2 * toCenter.dx, toCenter.dy), HQs[0].translate(toCenter.dx, 2 * toCenter.dy),
 				HQs[0].translate(1, 1), HQs[0].translate(1, 0),
@@ -139,6 +157,8 @@ public class Landscaper extends Unit {
 				HQs[0].translate(-1, -1), HQs[0].translate(-1, 0),
 				HQs[0].translate(-1, 1), HQs[0].translate(1, 0)
 		};
+		
+		// Check all locations to see if they need to be terraformed
 		for(MapLocation terraform : toBeFormed) {
 			if(pathFindTo(terraform, 20, false, "In Range")) {
 				try {
@@ -151,6 +171,7 @@ public class Landscaper extends Unit {
 					System.out.println("Error: Landscaper.analyzeTerrain() Failed!\nrc.senseElevation(" + terraform + ") Failed!");
 					e.printStackTrace();
 				}
+				
 			} else {
 				System.out.println("Failure: Landscaper.analyzeTerrain()\nFailed to analyze: " + terraform);
 			}
@@ -159,14 +180,21 @@ public class Landscaper extends Unit {
 
 	private void getDirt(List<MapLocation> tooHigh) {
 		Direction dir;
+		
+		// Mine until all high spots have been terraformed or full
 		while(rc.getDirtCarrying() < RobotType.LANDSCAPER.dirtLimit && !tooHigh.isEmpty()) {
 			dir = loc.directionTo(tooHigh.get(0));
+			
+			// Go to a mountain
 			if(pathFindTo(tooHigh.get(0), 20, false, "Adj")) {
 				try {
+					// Tear down the mountain
 					while(rc.canDigDirt(dir) && rc.getDirtCarrying() < RobotType.LANDSCAPER.dirtLimit && rc.senseElevation(tooHigh.get(0)) > 5) {
 						rc.digDirt(dir);
 						yield();
 					}
+					
+					// If successful, remove it
 					if(rc.senseElevation(tooHigh.get(0)) <= 5 || senseForBuilding(rc.adjacentLocation(dir))) {
 						tooHigh.remove(0);
 					}
@@ -176,11 +204,16 @@ public class Landscaper extends Unit {
 				}
 			}
 		}
-
+		
+		// If not full
 		if(rc.getDirtCarrying() < RobotType.LANDSCAPER.dirtLimit) {
 			MapLocation getDirtFrom = desSch.translate(1, 0);
+
+			// Go to generic spot
 			if(pathFindTo(getDirtFrom, 20, false, "Adj")) {
 				dir = loc.directionTo(getDirtFrom);
+				
+				// Get dirt
 				while(rc.getDirtCarrying() < RobotType.LANDSCAPER.dirtLimit && rc.canDigDirt(dir)) {
 					try {
 						rc.digDirt(dir);
@@ -196,14 +229,21 @@ public class Landscaper extends Unit {
 
 	private void putDirt(List<MapLocation> tooLow) {
 		Direction dir;
+		
+		// Put dirt until all low spots filled in or empty
 		while(rc.getDirtCarrying() > 0 && !tooLow.isEmpty()) {
 			dir = loc.directionTo(tooLow.get(0));
+			
+			// Go to first low spot
 			if(pathFindTo(tooLow.get(0), 20, false, "Adj")) {
 				try {
+					// Fill in hole or flooded tile
 					while(rc.canDepositDirt(dir) && !senseForBuilding(rc.adjacentLocation(dir)) && rc.getDirtCarrying() > 0 && (rc.senseElevation(tooLow.get(0)) < 2 || rc.senseFlooding(tooLow.get(0)))) {
 						rc.depositDirt(dir);
 						yield();
 					}
+
+					// If successful, remove it
 					if(rc.senseElevation(tooLow.get(0)) >= 2 || senseForBuilding(rc.adjacentLocation(dir))) {
 						tooLow.remove(0);
 					}
@@ -214,10 +254,15 @@ public class Landscaper extends Unit {
 			}
 		}
 		
+		// If not empty
 		if(rc.getDirtCarrying() > 0) {
 			MapLocation putDirt = desSch.translate(1, 0);
+			
+			// Go to generic spot
 			if(pathFindTo(putDirt, 20, false, "Adj")) {
 				dir = loc.directionTo(putDirt);
+				
+				// Place dirt
 				while(rc.getDirtCarrying() > 0 && rc.canDepositDirt(dir)) {
 					try {
 						rc.depositDirt(dir);

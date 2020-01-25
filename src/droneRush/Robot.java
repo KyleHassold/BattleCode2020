@@ -73,6 +73,7 @@ public abstract class Robot {
 		mapW = rc.getMapWidth();
 		center = new MapLocation((mapW - 1) /2, (mapH - 1) / 2);
 		
+		//Find HQ
 		for(RobotInfo robo : rc.senseNearbyRobots()) {
 			if(robo.type == RobotType.HQ && robo.team == rc.getTeam()) {
 				HQs[0] = robo.location;
@@ -98,7 +99,8 @@ public abstract class Robot {
 		if(rc.getTeamSoup() < rType.cost) {
 			return false;
 		}
-
+		
+		// Check all directions for building
 		Direction[] prefDirs = getPrefDir(prefDir);
 		for(Direction dir : prefDirs) {
 			if(rc.canBuildRobot(rType, dir)) {
@@ -112,6 +114,7 @@ public abstract class Robot {
 				}
 			}
 		}
+		
 		System.out.println("Failure: Robot.buildRobot(" + rType + ", " + prefDir + ")\nFailed to build robot");
 		return false;
 
@@ -123,21 +126,28 @@ public abstract class Robot {
 	 * Return the found location or null if not found
 	 */
 	protected MapLocation findAdjRobot(RobotType type, Team team) {
+		// Check each direction
 		for(Direction dir : directions) {
 			MapLocation adj = rc.adjacentLocation(dir);
+			
+			// Sense the adjacent location
 			if(rc.canSenseLocation(adj)) {
 				RobotInfo robo = null;
+				
 				try {
 					robo = rc.senseRobotAtLocation(adj);
 				} catch (GameActionException e) {
 					System.out.println("Error: Robot.findAdjRobot(" + adj + ") Failed!");
 					e.printStackTrace();
 				}
-				if(robo != null && (team == null || robo.team == team)) {
+				
+				// If it is the robot being searched for
+				if(robo != null && robo.type == type && (team == null || robo.team == team)) {
 					return robo.location;
 				}
 			}
 		}
+		
 		System.out.println("Failure: Robot.findAdjRobot(" + type + ", " + team + ")\nFailed to find robot");
 		return null;
 	}
@@ -150,6 +160,8 @@ public abstract class Robot {
 	protected MapLocation bestSoup(int rSq) {
 		MapLocation bestSoup = null;
 		int bestScore = 0;
+		
+		// Check each soup to see if it is the best
 		for(MapLocation s : soup) {
 			int temp = loc.distanceSquaredTo(s) + s.distanceSquaredTo(ref == null ? HQs[0] : ref);
 			if(!s.isWithinDistanceSquared(HQs[0], rSq) && (bestSoup == null || bestScore > temp)) {
@@ -183,6 +195,7 @@ public abstract class Robot {
 				e.printStackTrace();
 			}
 		}
+		
 		return false;
 	}
 	
@@ -192,17 +205,24 @@ public abstract class Robot {
 	 * Based on HQ's processing
 	 * Return true is all soup has been processed and false if otherwise
 	 */
-	protected boolean senseNewSoup(boolean first) {
+	protected boolean senseNewSoup(boolean first, boolean report, int spareByteCode) {
 		MapLocation[] newSoup = rc.senseNearbySoup();
+		
 		for(MapLocation s : newSoup) {
+			// If the soup is new, record it
 			if(first || !map.containsKey(s)) {
 				soup.add(s);
 				map.put(s, new int[] {0,0,1,0});
+				if(report) {
+					submitTransaction(new int[] {teamCode, s.x, s.y, 1, -1, -1, 0}, 1, false);
+				}
 			}
+			
 			if(Clock.getBytecodesLeft() < 5000) {
 				return false;
 			}
 		}
+		
 		return true;
 	}
 	
@@ -215,6 +235,7 @@ public abstract class Robot {
         for(int i = 0; i < offsets.length; i++) {
         	results[i + 1] = directions.get((baseDir + offsets[i]) % 8);
         }
+        
         return results;
 	}
 	
@@ -239,12 +260,14 @@ public abstract class Robot {
 	 */
 	protected void checkTransactions() {
 		Transaction[] trans = null;
+		
 		try {
 			trans = rc.getBlock(rc.getRoundNum()-1);
 		} catch (GameActionException e) {
 			System.out.println("Error: Robot.checkTransactions() Failed!");
 			e.printStackTrace();
 		}
+		
 		for(Transaction t : trans) {
 			analyzeTransaction(t);
 		}
@@ -259,6 +282,7 @@ public abstract class Robot {
 		if(t.getMessage()[0] != teamCode) {
 			return;
 		}
+		
 		if(t.getMessage()[6] == 0) { // Soup
 			loc = new MapLocation(t.getMessage()[1], t.getMessage()[2]);
 			if(!map.containsKey(loc)) {
@@ -331,6 +355,7 @@ public abstract class Robot {
 			}
 			return true;
 		}
+		
 		System.out.println("Failure: Robot.submitTransaction(" + message + ", " + cost + ", " + wait + ")\nFailed to submit transaction");
 		return false;
 	}
