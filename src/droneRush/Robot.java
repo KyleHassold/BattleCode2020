@@ -53,6 +53,7 @@ public abstract class Robot {
 	int mapW;
 	int teamCode;
 
+	MapLocation enemy = null;
 
 	// Super constructor
 	protected Robot(RobotController rc) {
@@ -295,7 +296,7 @@ public abstract class Robot {
 			loc = new MapLocation(t.getMessage()[1], t.getMessage()[2]);
 			HQs[1] = loc;
 			map.put(loc, new int[] {0,0,0,-1});
-			System.out.println("HQ Message Recieved!");
+			System.out.println("Enemy HQ Message Recieved! " + HQs[1]);
 			
 		} else if(t.getMessage()[6] == 2) { // Refinery
 			loc = new MapLocation(t.getMessage()[1], t.getMessage()[2]);
