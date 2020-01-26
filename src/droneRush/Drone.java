@@ -13,10 +13,9 @@ public class Drone extends Unit {
 	@Override
 	protected void run() {
 		//readTransactions();
-		if HQs[1] == null:
+		if (HQs[1] == null)
 			runScout();
-		else 
-			runAttack();
+		runAttack();
 	}
 	
 	private void runScout() {
@@ -57,5 +56,9 @@ public class Drone extends Unit {
 		}
 		
 		System.out.println("Failure: Drone.runScout()\nFailed to find enemy HQ");
+	}
+	
+	private void runAttack() {
+		while (true);
 	}
 }
