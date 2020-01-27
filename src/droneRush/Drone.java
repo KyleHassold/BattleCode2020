@@ -86,7 +86,12 @@ public class Drone extends Unit {
 							rob_id = rob.getID();
 						}
 				}
-			
+		
+				if (!rc.isReady()) {
+					yield();
+					continue;
+				}
+	
 				System.out.println("Carrying Status: " + carrying);	
 				if (!carrying && rc.canPickUpUnit(rob_id)) {
 					rc.pickUpUnit(rob_id);
@@ -99,6 +104,7 @@ public class Drone extends Unit {
 				if (carrying) {
 					for (Direction dir : directions) {
 						MapLocation dest = myLoc.add(dir);
+						System.out.println("Scanning " + dest + (rc.canSenseLocation(dest) ? (rc.senseFlooding(dest) ? " is flooded" : " is not flooded") : "failed.") + " Can drop unit: " + rc.canDropUnit(dir) + " Cooldown Turns: " + rc.getCooldownTurns());
 						if (rc.canSenseLocation(dest) && rc.senseFlooding(dest) 
 							&& rc.canDropUnit(dir)) {
 							rc.dropUnit(dir);
@@ -127,7 +133,6 @@ public class Drone extends Unit {
 					if (!pathFindTo(myLoc.add(heading), 3, false, "On"))
 						heading = null;
 				}
-
 			} catch (GameActionException e) {
 				System.out.println("Failure: Drone.runAttack()\nFailed to attack miners");
 				e.printStackTrace();
