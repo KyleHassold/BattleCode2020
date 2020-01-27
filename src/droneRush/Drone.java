@@ -81,46 +81,56 @@ public class Drone extends Unit {
 				if (target == null) {
 					RobotInfo[] info = rc.senseNearbyRobots();
 					for (RobotInfo rob : info)
-						if (rob.getTeam() == opp && rob.getType() == RobotType.MINER) {
+						if (rob.getTeam() == opp && (rob.getType() == RobotType.MINER || rob.getType() == RobotType.LANDSCAPER)) {
 							target = rob.getLocation();
 							rob_id = rob.getID();
 						}
 				}
 			
 				System.out.println("Carrying Status: " + carrying);	
-				if (rc.canPickUpUnit(rob_id)) {
+				if (!carrying && rc.canPickUpUnit(rob_id)) {
 					rc.pickUpUnit(rob_id);
 					carrying = true;
 				}
 
-				if (carrying)
-					for (Direction dir : directions)
-						if (rc.canSenseLocation(myLoc.add(dir)) && rc.senseFlooding(myLoc.add(dir)) 
+				if (target != null && myLoc.distanceSquaredTo(target) <= 2) 
+					target = null;
+
+				if (carrying) {
+					for (Direction dir : directions) {
+						MapLocation dest = myLoc.add(dir);
+						if (rc.canSenseLocation(dest) && rc.senseFlooding(dest) 
 							&& rc.canDropUnit(dir)) {
 							rc.dropUnit(dir);
 							target = null;
 							carrying = false;
 						}
-				
+					}
+				}
+
 				if (carrying && water != null) {
-					if (!pathFindTo(water, myLoc.distanceSquaredTo(water) * 2, true, "Adj"))
+					Direction dir = myLoc.directionTo(water);
+					if (!pathFindTo(myLoc.add(dir).add(dir), 3, false, "Adj"))
 						water = null;
 
 				} else if (!carrying && target != null) {
-					if (!pathFindTo(target, myLoc.distanceSquaredTo(target) * 2, true, "Adj"))
+					Direction dir = myLoc.directionTo(target);
+					if (!pathFindTo(myLoc.add(dir).add(dir), 3, false, "Adj"))
 						target = null;
 
 				} else {
 					if (heading == null) 
 						heading = randomValidDirection();
+					
 					System.out.println("Heading Status: " + heading);
 					
-					if (!pathFindTo(myLoc.add(heading).add(heading), 3, true, "Adj"))
+					if (!pathFindTo(myLoc.add(heading), 3, false, "On"))
 						heading = null;
 				}
 
 			} catch (GameActionException e) {
 				System.out.println("Failure: Drone.runAttack()\nFailed to attack miners");
+				e.printStackTrace();
 			}
 		}
 	}
