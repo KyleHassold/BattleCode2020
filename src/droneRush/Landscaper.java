@@ -89,6 +89,18 @@ public class Landscaper extends Unit {
 	}
 	
 	private void barricade() {
+		Direction[] putDirt = new Direction[2];
+		if(loc.x == HQs[0].x) {
+			putDirt[0] = Direction.EAST;
+			putDirt[1] = Direction.WEST;
+		} else if(loc.y == HQs[0].y) {
+			putDirt[0] = Direction.NORTH;
+			putDirt[1] = Direction.SOUTH;
+		} else {
+			putDirt[0] = loc.directionTo(HQs[0]).rotateLeft();
+			putDirt[1] = loc.directionTo(HQs[0]).rotateRight();
+		}
+		
 		Direction placeDirt = Direction.CENTER;
 		Direction mineDir = HQs[0].directionTo(rc.getLocation());
 		
@@ -109,6 +121,20 @@ public class Landscaper extends Unit {
 				}
 				
 				yield();
+			}
+
+			placeDirt = Direction.CENTER;
+			if(rc.getRoundNum() > 1000) {
+				for(Direction putDirection : putDirt) {
+					rc.setIndicatorDot(rc.adjacentLocation(putDirection), 255, 0, 255);
+					try {
+						if(rc.canSenseLocation(rc.adjacentLocation(putDirection)) && rc.senseRobotAtLocation(rc.adjacentLocation(putDirection)) != null && rc.senseRobotAtLocation(rc.adjacentLocation(putDirection)).type == RobotType.LANDSCAPER && rc.senseElevation(rc.adjacentLocation(placeDirt)) > rc.senseElevation(rc.adjacentLocation(putDirection))) {
+							placeDirt = putDirection;
+						}
+					} catch (GameActionException e) {
+						e.printStackTrace();
+					}
+				}
 			}
 			
 			// Place dirt
