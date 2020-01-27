@@ -194,18 +194,28 @@ public abstract class Unit extends Robot {
 		
 		if(rc.getType() != RobotType.DELIVERY_DRONE) {
 			try {
-				return rc.canMove(moveDir) && !rc.senseFlooding(rc.adjacentLocation(moveDir))
-					&& (!avoidWalls || avoidWalls(moveDir));
+				return rc.canMove(moveDir) && !rc.senseFlooding(rc.adjacentLocation(moveDir)) 
+						&& (!avoidWalls || avoidWalls(moveDir));
 			} catch (GameActionException e) {
 				System.out.println("Error: Unit.canMoveComplete(" + moveDir + ", " + avoidWalls + ", " + target + ") Failed!\nrc.senseFlooding() Failed!");
 				e.printStackTrace();
 				return false;
 			}
 		} else {
-			return rc.canMove(moveDir) && (!avoidWalls || !rc.adjacentLocation(moveDir).isWithinDistanceSquared(target, GameConstants.NET_GUN_SHOOT_RADIUS_SQUARED));
+			return rc.canMove(moveDir) && avoidNetGun(moveDir); 
+			//return rc.canMove(moveDir) && (!avoidWalls || !rc.adjacentLocation(moveDir).isWithinDistanceSquared(target, GameConstants.NET_GUN_SHOOT_RADIUS_SQUARED));
 		}
 	}
 	
+	protected boolean avoidNetGun(Direction moveDir) {
+		System.out.println("Avoiding NetGun");
+		RobotInfo[] info = rc.senseNearbyRobots();
+		MapLocation dest = rc.getLocation().add(moveDir);
+		for (RobotInfo rob : info) 
+			if ((rob.getType() == RobotType.HQ || rob.getType() == RobotType.NET_GUN) && rob.getTeam() == rc.getTeam().opponent() && dest.isWithinDistanceSquared(rob.getLocation(), GameConstants.NET_GUN_SHOOT_RADIUS_SQUARED))
+				return false;
+		return true; 
+	}
 	/*
 	 * Checks if the movement will get in the way of things going on around the HQ
 	 * or, if already near the HQ, if it moves the unit way
