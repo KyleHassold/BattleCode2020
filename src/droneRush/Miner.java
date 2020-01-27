@@ -31,8 +31,8 @@ public class Miner extends Unit {
 			
 			System.out.println("Builder");
 		}
-
-		checkTransactions();
+		
+		phase = 1;
 	}
 
 	@Override
@@ -100,9 +100,9 @@ public class Miner extends Unit {
 		
 		try {
 			// Get in range and make sure there is soup
-			if(pathFindTo(target, 50, false, "In Range") && rc.canSenseLocation(target) && rc.senseSoup(target) != 0) {
+			if(pathFindTo(target, 50, "In Range") && rc.canSenseLocation(target) && rc.senseSoup(target) != 0) {
 				// Move next to the soup
-				if(pathFindTo(target, 15, false, "Adj")) {
+				if(pathFindTo(target, 15, "Adj")) {
 					Direction dir = loc.directionTo(target);
 					// Mine the soup
 					while(rc.canMineSoup(dir)) {
@@ -140,7 +140,7 @@ public class Miner extends Unit {
 		}
 		
 		// Move to HQ
-		if(!pathFindTo(returnTo, 40, false, "Adj")) {
+		if(!pathFindTo(returnTo, 40, "Adj")) {
 			System.out.println("Failure: Miner.returnSoup()\nFailed to return to Refinery/HQ");
 		}
 
@@ -167,7 +167,7 @@ public class Miner extends Unit {
 		}
 		
 		// Go next to the build spot and request help if failing
-		if(!pathFindTo(buildSpot, 50, false, "Adj")) {
+		if(!pathFindTo(buildSpot, 50, "Adj")) {
 			submitTransaction(new int[] {teamCode, loc.x, loc.y, buildSpot.x, buildSpot.y - 1, -1, 9}, 10, true);
 		}
 		yield();
@@ -193,6 +193,7 @@ public class Miner extends Unit {
 						
 						submitTransaction(new int[] {teamCode, HQs[0].x, HQs[0].y, -1, -1, -1, 8}, 10, true);
 						buildCount--;
+						return;
 					}
 				} catch (GameActionException e) {
 					System.out.println("Error: Miner.build(" + robo + ", " + buildSpot + ") Failed!\nrc.sense...(" + buildSpot + ") Failed!");

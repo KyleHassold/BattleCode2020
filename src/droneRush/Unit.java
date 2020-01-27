@@ -9,47 +9,53 @@ import battlecode.common.*;
 
 public abstract class Unit extends Robot {
 	List<MapLocation> path = new ArrayList<MapLocation>();
-	List<MapLocation> landscaperSpots = new ArrayList<MapLocation>();
+	List<MapLocation> lSpotsCen = new ArrayList<MapLocation>();
+	List<MapLocation> lSpotsMid = new ArrayList<MapLocation>();
+	List<MapLocation> corners = new ArrayList<MapLocation>();
 	MapLocation target;
 	Random rand = new Random();
 
 	protected Unit(RobotController rc) {
 		super(rc);
 		
-		Direction dir = HQs[0].directionTo(center);
+		Direction dir = center.directionTo(HQs[0]);
 		if(isCardinalDir(dir)) {
 			dir = dir.rotateRight();
 		}
-		/*
+		
 		MapLocation spot;
 		for(Direction d : getPrefDir(dir)) {
 			spot = HQs[0].translate(d.dx, d.dy);
 			if(rc.onTheMap(spot)) {
-				landscaperSpots.add(spot);
+				lSpotsCen.add(spot);
 			}
 		}
-		*/
+		dir = dir.opposite();
 		
-		landscaperSpots.add(new MapLocation(HQs[0].x + dir.dx, HQs[0].y + 3 * dir.dy));
-		landscaperSpots.add(new MapLocation(HQs[0].x, HQs[0].y + 2 * dir.dy));
-		landscaperSpots.add(new MapLocation(HQs[0].x - dir.dx, HQs[0].y + 3 * dir.dy));
-		landscaperSpots.add(new MapLocation(HQs[0].x - 2 * dir.dx, HQs[0].y + 2 * dir.dy));
-		landscaperSpots.add(new MapLocation(HQs[0].x - 3 * dir.dx, HQs[0].y + 3 * dir.dy));
-		landscaperSpots.add(new MapLocation(HQs[0].x - 3 * dir.dx, HQs[0].y + dir.dy));
-		landscaperSpots.add(new MapLocation(HQs[0].x - 2 * dir.dx, HQs[0].y));
-		landscaperSpots.add(new MapLocation(HQs[0].x - 3 * dir.dx, HQs[0].y - dir.dy));
-		landscaperSpots.add(new MapLocation(HQs[0].x - 2 * dir.dx, HQs[0].y - 2 * dir.dy));
-		landscaperSpots.add(new MapLocation(HQs[0].x - 3 * dir.dx, HQs[0].y - 3 * dir.dy));
-		landscaperSpots.add(new MapLocation(HQs[0].x - dir.dx, HQs[0].y - 3 * dir.dy));
-		landscaperSpots.add(new MapLocation(HQs[0].x, HQs[0].y - 2 * dir.dy));
-		landscaperSpots.add(new MapLocation(HQs[0].x + dir.dx, HQs[0].y - 3 * dir.dy));
-		landscaperSpots.add(new MapLocation(HQs[0].x + 2 * dir.dx, HQs[0].y - 2 * dir.dy));
-		landscaperSpots.add(new MapLocation(HQs[0].x + 3 * dir.dx, HQs[0].y - 3 * dir.dy));
-		landscaperSpots.add(new MapLocation(HQs[0].x + 3 * dir.dx, HQs[0].y - dir.dy));
-		landscaperSpots.add(new MapLocation(HQs[0].x + 2 * dir.dx, HQs[0].y));
-		landscaperSpots.add(new MapLocation(HQs[0].x + 3 * dir.dx, HQs[0].y + dir.dy));;
-		landscaperSpots.add(new MapLocation(HQs[0].x + 3 * dir.dx, HQs[0].y + 4 * dir.dy));;
-		landscaperSpots.add(new MapLocation(HQs[0].x + 4 * dir.dx, HQs[0].y + 3 * dir.dy));
+		lSpotsMid.add(new MapLocation(HQs[0].x + dir.dx, HQs[0].y + 3 * dir.dy));
+		lSpotsMid.add(new MapLocation(HQs[0].x, HQs[0].y + 2 * dir.dy));
+		lSpotsMid.add(new MapLocation(HQs[0].x - dir.dx, HQs[0].y + 3 * dir.dy));
+		lSpotsMid.add(new MapLocation(HQs[0].x - 2 * dir.dx, HQs[0].y + 2 * dir.dy));
+		lSpotsMid.add(new MapLocation(HQs[0].x - 3 * dir.dx, HQs[0].y + 3 * dir.dy));
+		lSpotsMid.add(new MapLocation(HQs[0].x - 3 * dir.dx, HQs[0].y + dir.dy));
+		lSpotsMid.add(new MapLocation(HQs[0].x - 2 * dir.dx, HQs[0].y));
+		lSpotsMid.add(new MapLocation(HQs[0].x - 3 * dir.dx, HQs[0].y - dir.dy));
+		lSpotsMid.add(new MapLocation(HQs[0].x - 2 * dir.dx, HQs[0].y - 2 * dir.dy));
+		lSpotsMid.add(new MapLocation(HQs[0].x - 3 * dir.dx, HQs[0].y - 3 * dir.dy));
+		lSpotsMid.add(new MapLocation(HQs[0].x - dir.dx, HQs[0].y - 3 * dir.dy));
+		lSpotsMid.add(new MapLocation(HQs[0].x, HQs[0].y - 2 * dir.dy));
+		lSpotsMid.add(new MapLocation(HQs[0].x + dir.dx, HQs[0].y - 3 * dir.dy));
+		lSpotsMid.add(new MapLocation(HQs[0].x + 2 * dir.dx, HQs[0].y - 2 * dir.dy));
+		lSpotsMid.add(new MapLocation(HQs[0].x + 3 * dir.dx, HQs[0].y - 3 * dir.dy));
+		lSpotsMid.add(new MapLocation(HQs[0].x + 3 * dir.dx, HQs[0].y - dir.dy));
+		lSpotsMid.add(new MapLocation(HQs[0].x + 2 * dir.dx, HQs[0].y));
+		lSpotsMid.add(new MapLocation(HQs[0].x + 3 * dir.dx, HQs[0].y + dir.dy));
+		lSpotsMid.add(new MapLocation(HQs[0].x + 3 * dir.dx, HQs[0].y + 4 * dir.dy));
+		lSpotsMid.add(new MapLocation(HQs[0].x + 4 * dir.dx, HQs[0].y + 3 * dir.dy));
+		lSpotsMid.add(null);
+		corners.add(new MapLocation(HQs[0].x - 3 * dir.dx, HQs[0].y + 3 * dir.dy));
+		corners.add(new MapLocation(HQs[0].x - 3 * dir.dx, HQs[0].y - 3 * dir.dy));
+		corners.add(new MapLocation(HQs[0].x + 3 * dir.dx, HQs[0].y - 3 * dir.dy));
 	}
 	
 	//----- Moving -----//
@@ -61,10 +67,10 @@ public abstract class Unit extends Robot {
 	 * Only get as close to the target as "distance" specifies
 	 * Returns true if the goal was achieved
 	 */
-	protected boolean pathFindTo(MapLocation target, int moveLimit, boolean avoid, String distance) {
+	protected boolean pathFindTo(MapLocation target, int moveLimit, String distance) {
         int giveUp = 0;
 
-		while(giveUp < moveLimit && !pathFindToOne(target, avoid, distance)) {
+		while(giveUp < moveLimit && !pathFindToOne(target, distance)) {
 			giveUp++;
 			yield();
 		}
@@ -72,7 +78,7 @@ public abstract class Unit extends Robot {
 		path.clear();
 		
 		if(giveUp >= moveLimit) {
-			System.out.println("Failure: Unit.pathFindTo(" + target + ", " + moveLimit + ", " + avoid + ", " + distance + ")\nFailed to move to target");
+			System.out.println("Failure: Unit.pathFindTo(" + target + ", " + moveLimit + ", " + distance + ")\nFailed to move to target");
 		}
 		
 		return giveUp < moveLimit;
@@ -92,7 +98,7 @@ public abstract class Unit extends Robot {
 		// While there isn't any satisfactory soup
 		while((!farSoup && soup.isEmpty()) || (farSoup && bestSoup(30) == null)) {
 			// If there are still moves left and the move put the robot in spot
-			if(giveUp > limit || pathFindToOne(randSpot, true, "On")) {
+			if(giveUp > limit || pathFindToOne(randSpot, "On")) {
 				// Select a new spot and continue
 				randSpot = getRandSpot();
 				rc.setIndicatorDot(randSpot, 255, 0, 0);
@@ -110,7 +116,7 @@ public abstract class Unit extends Robot {
 	 * Conducts one movement using the bread crumb path finding algorithm
 	 * Returns true if in the proper range of the target
 	 */
-	protected boolean pathFindToOne(MapLocation target, boolean avoid, String distance) {
+	protected boolean pathFindToOne(MapLocation target, String distance) {
 		if(atGoal(target, distance)) {
 			return true;
 		}
@@ -122,7 +128,7 @@ public abstract class Unit extends Robot {
 		for(Direction dir : prefDirs) {
 			MapLocation moveLoc = rc.adjacentLocation(dir);
 			if(Collections.frequency(path, moveLoc) < 2) {
-				if(canMoveComplete(dir, avoid, target)) {
+				if(canMoveComplete(dir, target)) {
 					moveDir = dir;
 					break;
 				}
@@ -209,22 +215,21 @@ public abstract class Unit extends Robot {
 	 * Should be edited to better determine the value/ability to move
 	 * Should include enemy drones for miners and landscapers and potential flooding
 	 */
-	private boolean canMoveComplete(Direction moveDir, boolean avoidWalls, MapLocation target) {
+	private boolean canMoveComplete(Direction moveDir, MapLocation target) {
 		if(ref != null && rc.getType() == RobotType.MINER && !moveAwayFromHQ(moveDir)) {
 			return false;
 		}
 		
 		if(rc.getType() != RobotType.DELIVERY_DRONE) {
 			try {
-				return rc.canMove(moveDir) && !rc.senseFlooding(rc.adjacentLocation(moveDir))
-					&& (!avoidWalls || avoidWalls(moveDir));
+				return rc.canMove(moveDir) && !rc.senseFlooding(rc.adjacentLocation(moveDir));
 			} catch (GameActionException e) {
-				System.out.println("Error: Unit.canMoveComplete(" + moveDir + ", " + avoidWalls + ", " + target + ") Failed!\nrc.senseFlooding() Failed!");
+				System.out.println("Error: Unit.canMoveComplete(" + moveDir + ", " + target + ") Failed!\nrc.senseFlooding() Failed!");
 				e.printStackTrace();
 				return false;
 			}
 		} else {
-			return rc.canMove(moveDir) && (!avoidWalls || !rc.adjacentLocation(moveDir).isWithinDistanceSquared(target, GameConstants.NET_GUN_SHOOT_RADIUS_SQUARED));
+			return rc.canMove(moveDir);
 		}
 	}
 	
@@ -236,7 +241,7 @@ public abstract class Unit extends Robot {
 		MapLocation adj = loc.translate(dir.dx, dir.dy);
 		
 		// If the adjacent spot is in the range of the HQ
-		if(adj.x <= HQs[0].x + 2 && adj.x >= HQs[0].x - 2 && adj.y <= HQs[0].y + 2 && adj.y >= HQs[0].y - 2) {
+		if(adj.x <= HQs[0].x + 3 && adj.x >= HQs[0].x - 3 && adj.y <= HQs[0].y + 3 && adj.y >= HQs[0].y - 3) {
 			Direction awayDir = HQs[0].directionTo(loc);
 			
 			// If the direction of movement is away from the HQ

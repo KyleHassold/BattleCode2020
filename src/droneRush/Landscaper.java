@@ -11,7 +11,7 @@ public class Landscaper extends Unit {
 
 	public Landscaper(RobotController rc) {
 		super(rc);
-		
+
 		desSch = findAdjRobot(RobotType.DESIGN_SCHOOL, rc.getTeam());
 		if(HQs[0] == null) {
 			fulCent = findAdjRobot(RobotType.FULFILLMENT_CENTER, rc.getTeam());
@@ -24,7 +24,7 @@ public class Landscaper extends Unit {
 				}
 			}
 		}
-		checkTransactions();
+		phase = 3;
 	}
 
 	@Override
@@ -32,66 +32,54 @@ public class Landscaper extends Unit {
 		if(terraformer) {
 			equalizeLandscape();
 			barricadeOuter();
+		} else if(loc.directionTo(desSch).equals(Direction.EAST) || loc.directionTo(desSch).equals(Direction.WEST)) {
+				getToSpotMiddle();
+				phase = 4;
 		} else {
-			getToSpot();
-			getSpotInfo();
-			barricade();
+			equalizeLandscape();
+			getToSpotCenter();
+		}
+		getSpotInfo();
+		while(phase == 3) {
+			System.out.println("Test");
+			yield();
+		}
+		barricade();
+	}
+
+	private void getToSpotCenter() {
+		int spot = 0;
+		target = lSpotsCen.get(spot);
+		while(!loc.equals(target)) {
+			rc.setIndicatorDot(target, 255, 0, 0);
+			try {
+				if(!(rc.canSenseLocation(target) && rc.senseRobotAtLocation(target) != null && rc.senseRobotAtLocation(target).type == RobotType.LANDSCAPER)) {
+					pathFindToOne(target, "On");
+				} else {
+					spot = (spot + 1) % lSpotsCen.size();
+					target = lSpotsCen.get(spot);
+				}
+			} catch (GameActionException e) {
+				e.printStackTrace();
+			}
 		}
 	}
 
-	private void getToSpot() {
-		rc.setIndicatorDot(landscaperSpots.get(0), 255, 0, 0);
-		target = landscaperSpots.remove(0);
-		
-		// Keep trying to go to spots on the wall to fill in the wall
+	private void getToSpotMiddle() {
+		target = lSpotsMid.remove(0);
 		try {
-			while(landscaperSpots.size() > 0 && !loc.equals(target) && pathFindTo(target, 20, false, "In Range") && rc.senseRobotAtLocation(target) != null && rc.senseRobotAtLocation(target).type == RobotType.LANDSCAPER) {
-				target = landscaperSpots.remove(0);
+			while(target != null && rc.canSenseLocation(target) && (rc.senseRobotAtLocation(target) == null || (!loc.equals(target) && rc.senseRobotAtLocation(target).type != RobotType.LANDSCAPER))) {
 				rc.setIndicatorDot(target, 255, 0, 0);
-			}
-			
-			if(landscaperSpots.size() == 0 && !loc.equals(target) && pathFindTo(target, 20, false, "In Range") && rc.senseRobotAtLocation(target) != null && rc.senseRobotAtLocation(target).type == RobotType.LANDSCAPER) {
-				while(true) {
-					System.out.println("Failed to get to any spot");
-					yield();
+				if(!corners.contains(target) || !(rc.canSenseLocation(lSpotsMid.get(0)) && rc.senseRobotAtLocation(lSpotsMid.get(0)) != null && rc.senseRobotAtLocation(lSpotsMid.get(0)).type != RobotType.LANDSCAPER)) {
+					pathFindTo(target, 10, "On");
+				} else {
+					pathFindTo(target, 10, "On");
+					break;
 				}
+				target = lSpotsMid.remove(0);
 			}
 		} catch (GameActionException e) {
-			System.out.println("Error: Landscaper.getToSpot() Failed!\nrc.senseRobotAtLocation(" + target + ") Failed!");
 			e.printStackTrace();
-		}
-
-		yield();
-		
-		// Move to selected target
-		while(!loc.equals(target)) {
-			// If the target is now filled, move on
-			try {
-				if(rc.canSenseLocation(target) && rc.senseRobotAtLocation(target) != null && rc.senseRobotAtLocation(target).type == RobotType.LANDSCAPER) {
-					target = landscaperSpots.remove(0);
-				}
-			} catch (GameActionException e) {
-				System.out.println("Error: Landscaper.getToSpot() Failed!\nrc.senseRobotAtLocation(" + target + ") Failed!");
-				e.printStackTrace();
-			}
-			
-			MapLocation prevLoc = loc;
-			pathFindToOne(target, false, "On");
-			
-			// If movement failed
-			if(loc.equals(prevLoc)) {
-				submitTransaction(new int[] {teamCode, loc.x, loc.y, target.x, target.y, -1, 9}, 10, true);
-				yield();
-				int prevTurn = rc.getRoundNum() - 1;
-				while(rc.getRoundNum() == prevTurn + 1) {
-					prevTurn = rc.getRoundNum() - 1;
-					yield();
-				}
-				loc = rc.getLocation();
-				break;
-			}
-			
-			yield();
 		}
 	}
 	
@@ -99,10 +87,25 @@ public class Landscaper extends Unit {
 		int dist = Math.max(Math.abs(loc.x - HQs[0].x), Math.abs(loc.y - HQs[0].y));
 		if(dist == 1) {
 			getDirt = HQs[0].directionTo(loc);
-			putDirt = new Direction[] {Direction.CENTER};
+			putDirt = new Direction[3];
+			putDirt[0] = Direction.CENTER;
+			if(loc.x == HQs[0].x) {
+				putDirt[1] = Direction.NORTH;
+				putDirt[2] = Direction.SOUTH;
+			} else if(loc.y == HQs[0].y) {
+				putDirt[1] = Direction.EAST;
+				putDirt[2] = Direction.WEST;
+			} else {
+				putDirt[1] = loc.directionTo(HQs[0]).rotateLeft();
+				putDirt[2] = loc.directionTo(HQs[0]).rotateRight();
+			}
 		} else if(dist == 2) {
 			getDirt = Direction.CENTER;
-			putDirt = new Direction[] {loc.directionTo(HQs[0])};
+			if(loc.x == HQs[0].x || loc.y == HQs[0].y) {
+				putDirt = new Direction[] {loc.directionTo(HQs[0]), loc.directionTo(HQs[0]).rotateLeft(), loc.directionTo(HQs[0]).rotateRight()};
+			} else {
+				putDirt = new Direction[] {loc.directionTo(HQs[0])};
+			}
 		} else if(dist == 3) {
 			getDirt = Direction.CENTER;
 			putDirt = new Direction[] {HQs[0].directionTo(loc), HQs[0].directionTo(loc).rotateLeft(), HQs[0].directionTo(loc).rotateRight()};
@@ -112,16 +115,16 @@ public class Landscaper extends Unit {
 				putDirt = new Direction[] {Direction.CENTER, getDirt.rotateLeft(), getDirt.rotateRight()};
 			} else if(Math.abs(loc.x - HQs[0].x) == 4) {
 				if(Math.abs(loc.y - HQs[0].y) % 2 == 1) {
-					getDirt = Math.abs(loc.x - HQs[0].x) < 0 ? Direction.EAST : Direction.WEST;
+					getDirt = loc.x - HQs[0].x < 0 ? Direction.EAST : Direction.WEST;
 				} else {
-					getDirt = Math.abs(loc.x - HQs[0].x) < 0 ? Direction.SOUTHEAST : Direction.SOUTHWEST;
+					getDirt = loc.x - HQs[0].x < 0 ? Direction.SOUTHEAST : Direction.SOUTHWEST;
 				}
 				putDirt = new Direction[] {Direction.CENTER, Direction.NORTH, Direction.SOUTH};
 			} else {
 				if(Math.abs(loc.x - HQs[0].x) % 2 == 1) {
-					getDirt = Math.abs(loc.y - HQs[0].y) < 0 ? Direction.NORTH : Direction.SOUTH;
+					getDirt = loc.y - HQs[0].y < 0 ? Direction.NORTH : Direction.SOUTH;
 				} else {
-					getDirt = Math.abs(loc.y - HQs[0].y) < 0 ? Direction.NORTHEAST : Direction.SOUTHEAST;
+					getDirt = loc.y - HQs[0].y < 0 ? Direction.NORTHEAST : Direction.SOUTHEAST;
 				}
 				putDirt = new Direction[] {Direction.CENTER, Direction.EAST, Direction.WEST};
 			}
@@ -211,7 +214,7 @@ public class Landscaper extends Unit {
 		
 		// Check all locations to see if they need to be terraformed
 		for(MapLocation terraform : toBeFormed) {
-			if(pathFindTo(terraform, 20, false, "In Range")) {
+			if(pathFindTo(terraform, 20, "In Range")) {
 				try {
 					if(rc.senseElevation(terraform) > 5) {
 						tooHigh.add(terraform);
@@ -237,7 +240,7 @@ public class Landscaper extends Unit {
 			dir = loc.directionTo(tooHigh.get(0));
 			
 			// Go to a mountain
-			if(pathFindTo(tooHigh.get(0), 20, false, "Adj")) {
+			if(pathFindTo(tooHigh.get(0), 20, "Adj")) {
 				try {
 					// Tear down the mountain
 					while(rc.canDigDirt(dir) && rc.getDirtCarrying() < RobotType.LANDSCAPER.dirtLimit && rc.senseElevation(tooHigh.get(0)) > 5) {
@@ -261,7 +264,7 @@ public class Landscaper extends Unit {
 			MapLocation getDirtFrom = desSch.translate(1, 0);
 
 			// Go to generic spot
-			if(pathFindTo(getDirtFrom, 20, false, "Adj")) {
+			if(pathFindTo(getDirtFrom, 20, "Adj")) {
 				dir = loc.directionTo(getDirtFrom);
 				
 				// Get dirt
@@ -286,7 +289,7 @@ public class Landscaper extends Unit {
 			dir = loc.directionTo(tooLow.get(0));
 			
 			// Go to first low spot
-			if(pathFindTo(tooLow.get(0), 20, false, "Adj")) {
+			if(pathFindTo(tooLow.get(0), 20, "Adj")) {
 				try {
 					// Fill in hole or flooded tile
 					while(rc.canDepositDirt(dir) && !senseForBuilding(rc.adjacentLocation(dir)) && rc.getDirtCarrying() > 0 && (rc.senseElevation(tooLow.get(0)) < 2 || rc.senseFlooding(tooLow.get(0)))) {
@@ -310,7 +313,7 @@ public class Landscaper extends Unit {
 			MapLocation putDirt = desSch.translate(1, 0);
 			
 			// Go to generic spot
-			if(pathFindTo(putDirt, 20, false, "Adj")) {
+			if(pathFindTo(putDirt, 20, "Adj")) {
 				dir = loc.directionTo(putDirt);
 				
 				// Place dirt

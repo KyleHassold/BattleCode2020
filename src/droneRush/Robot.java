@@ -52,6 +52,7 @@ public abstract class Robot {
 	int mapH;
 	int mapW;
 	int teamCode;
+	int phase;
 
 
 	// Super constructor
@@ -83,6 +84,7 @@ public abstract class Robot {
 		if(HQs[0] == null) {
 			System.out.println("Failure: Robot.Robot()\nFailed to sense HQ");
 		}
+		checkTransactions();
 	}
 
 	//---- Methods for all Robots -----//
@@ -246,9 +248,23 @@ public abstract class Robot {
 	protected void yield() {
 		Clock.yield();
 		checkTransactions();
+		checkPhase();
 		while(rc.getCooldownTurns() >= 1) {
 			Clock.yield();
 			checkTransactions();
+			checkPhase();
+		}
+	}
+
+	private void checkPhase() {
+		if(phase == 1 && fulCent != null) {
+			phase = 2;
+		}
+		if(phase == 2 && (ref != null || rc.getRoundNum() > 300)) {
+			phase = 3;
+		}
+		if(phase == 3 && rc.getRoundNum() > 500) {
+			phase = 4;
 		}
 	}
 
@@ -259,7 +275,7 @@ public abstract class Robot {
 	 * Analyzes each message there
 	 */
 	protected void checkTransactions() {
-		Transaction[] trans = null;
+		Transaction[] trans = new Transaction[] {};
 		
 		try {
 			trans = rc.getBlock(rc.getRoundNum()-1);
@@ -322,6 +338,10 @@ public abstract class Robot {
 			}
 			map.put(loc, new int[] {0,0,0,5});
 			System.out.println("Design School Message Recieved!");
+			
+		} else if(t.getMessage()[6] == 7) { // Phase change
+			phase = t.getMessage()[1];
+			System.out.println("Phase Message Recieved!");
 			
 		} else if(t.getMessage()[6] == 8) { // Terraformer
 			loc = new MapLocation(t.getMessage()[1], t.getMessage()[2]);

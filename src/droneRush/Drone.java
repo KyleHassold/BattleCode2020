@@ -83,7 +83,7 @@ public class Drone extends Unit {
 				}
 			} else {
 				// Move to the target
-				pathFindTo(targets[count], 80, true, "In Range");
+				pathFindTo(targets[count], 80, "In Range");
 			}
 		}
 		
@@ -91,7 +91,7 @@ public class Drone extends Unit {
 	}
 	
 	private void runDefend() {
-		pathFindTo(HQs[0], 80, false, "In Range");
+		pathFindTo(HQs[0], 80, "In Range");
 		while(true) {
 			yield();
 		}
@@ -108,7 +108,7 @@ public class Drone extends Unit {
 			// Wait for request
 			while(moveReqs.size() == 0) {
 				// Go to waiting spot
-				pathFindTo(new MapLocation(HQs[0].x + 3 * dir.dx, HQs[0].y + 3 * dir.dy), 2, false, "On");
+				pathFindTo(new MapLocation(HQs[0].x + 3 * dir.dx, HQs[0].y + 3 * dir.dy), 2, "On");
 				RobotInfo[] robots = rc.senseNearbyRobots(rc.getCurrentSensorRadiusSquared(), rc.getTeam());
 				// Check if any robots need forced removal
 				for(RobotInfo robo : robots) {
@@ -125,7 +125,7 @@ public class Drone extends Unit {
 			}
 			
 			// Move to target robot
-			if(pathFindTo(moveReqs.get(0)[0], 100, false, "Adj") && rc.canSenseLocation(moveReqs.get(0)[0])) {
+			if(pathFindTo(moveReqs.get(0)[0], 100, "Adj") && rc.canSenseLocation(moveReqs.get(0)[0])) {
 				rc.setIndicatorDot(moveReqs.get(0)[0], 120, 120, 120);
 				
 				RobotInfo robo = null;
@@ -151,15 +151,15 @@ public class Drone extends Unit {
 					}
 					
 					// Move to desired location
-					MapLocation dropOff = moveReqs.get(0)[1] != null ? moveReqs.get(0)[1] : landscaperSpots.remove(0);
+					MapLocation dropOff = moveReqs.get(0)[1] != null ? moveReqs.get(0)[1] : lSpotsMid.remove(0);
 					rc.setIndicatorDot(dropOff, 120, 120, 120);
 					try {
-						while(moveReqs.get(0)[1] == null && pathFindTo(dropOff, 50, false, "In Range") && rc.canSenseLocation(dropOff) && !loc.equals(dropOff) && rc.senseRobotAtLocation(dropOff) != null) {
+						while(moveReqs.get(0)[1] == null && pathFindTo(dropOff, 50, "In Range") && rc.canSenseLocation(dropOff) && !loc.equals(dropOff) && rc.senseRobotAtLocation(dropOff) != null) {
 							if(rc.senseRobotAtLocation(dropOff).type == RobotType.LANDSCAPER) {
-								dropOff = landscaperSpots.remove(0);
+								dropOff = lSpotsMid.remove(0);
 							} else {
-								landscaperSpots.add(dropOff);
-								dropOff = landscaperSpots.remove(0);
+								lSpotsMid.add(dropOff);
+								dropOff = lSpotsMid.remove(0);
 							}
 							rc.setIndicatorDot(dropOff, 120, 120, 120);
 						}
@@ -169,7 +169,7 @@ public class Drone extends Unit {
 					}
 					
 					// Move to drop off location
-					if(pathFindTo(dropOff, 50, false, "Adj")) {
+					if(pathFindTo(dropOff, 50, "Adj")) {
 						yield();
 						
 						while(loc.equals(dropOff)) {
