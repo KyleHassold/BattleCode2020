@@ -29,7 +29,7 @@ public class FulfillmentCenter extends Building {
 		
 		while(true) {
 			try {
-				if(drones < 4 && rc.canBuildRobot(RobotType.DELIVERY_DRONE, dir.rotateLeft())) {
+				if(vaporator != null && rc.canBuildRobot(RobotType.DELIVERY_DRONE, dir.rotateLeft()) && rc.getTeamSoup() > RobotType.DELIVERY_DRONE.cost + 10) {
 					rc.buildRobot(RobotType.DELIVERY_DRONE, dir.rotateLeft());
 					drones++;
 				}

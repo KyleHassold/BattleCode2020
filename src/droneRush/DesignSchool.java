@@ -17,6 +17,16 @@ public class DesignSchool extends Building {
 			}
 			
 			submitTransaction(new int[] {teamCode, HQs[0].x, HQs[0].y, -1, -1, -1, 8}, 10, true);
+			
+			while(rc.getTeamSoup() < RobotType.LANDSCAPER.cost + 10 || !buildRobot(RobotType.LANDSCAPER, loc.directionTo(HQs[0]))) {
+				yield();
+			}
+			
+			submitTransaction(new int[] {teamCode, HQs[0].x, HQs[0].y, -1, -1, -1, 8}, 10, true);
+			
+			while(true) {
+				yield();
+			}
 		}
 		
 		int landscapers = 0;

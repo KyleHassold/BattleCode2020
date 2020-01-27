@@ -233,7 +233,7 @@ public class Landscaper extends Unit {
 		
 		// If not full
 		if(rc.getDirtCarrying() < RobotType.LANDSCAPER.dirtLimit) {
-			MapLocation getDirtFrom = desSch.translate(1, 0);
+			MapLocation getDirtFrom = desSch.translate(HQs[0].directionTo(desSch).dx, HQs[0].directionTo(desSch).dx);
 
 			// Go to generic spot
 			if(pathFindTo(getDirtFrom, 20, false, "Adj")) {
@@ -282,7 +282,7 @@ public class Landscaper extends Unit {
 		
 		// If not empty
 		if(rc.getDirtCarrying() > 0) {
-			MapLocation putDirt = desSch.translate(1, 0);
+			MapLocation putDirt = desSch.translate(HQs[0].directionTo(desSch).dx, HQs[0].directionTo(desSch).dx);
 			
 			// Go to generic spot
 			if(pathFindTo(putDirt, 20, false, "Adj")) {
