@@ -30,14 +30,12 @@ public class DesignSchool extends Building {
 		}
 		
 		while(true) {
-			try {
-				if(landscapers < 8 && (ref != null || rc.getRoundNum() > 300) && rc.canBuildRobot(RobotType.LANDSCAPER, dir)) {
-					rc.buildRobot(RobotType.LANDSCAPER, dir);
+			if(landscapers < 20 && (ref != null || rc.getRoundNum() > 300)) {
+				if(buildRobot(RobotType.LANDSCAPER, dir)) {
 					landscapers++;
+				} else {
+					System.out.println("Failure: DesignSchool.run()\nFailed to build Landscaper");
 				}
-			} catch(GameActionException e) {
-				System.out.println("Error: DesignSchool.run() Failed!\nrc.buildRobot(landscaper, " + dir + ") Failed!");
-                e.printStackTrace();
 			}
 			yield();
 		}

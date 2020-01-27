@@ -16,18 +16,40 @@ public abstract class Unit extends Robot {
 	protected Unit(RobotController rc) {
 		super(rc);
 		
-        Direction prefDir = center.directionTo(HQs[0]);
-		if(isCardinalDir(prefDir)) {
-			prefDir = prefDir.rotateRight();
+		Direction dir = HQs[0].directionTo(center);
+		if(isCardinalDir(dir)) {
+			dir = dir.rotateRight();
 		}
-		
+		/*
 		MapLocation spot;
-		for(Direction dir : getPrefDir(prefDir)) {
-			spot = HQs[0].translate(dir.dx, dir.dy);
+		for(Direction d : getPrefDir(dir)) {
+			spot = HQs[0].translate(d.dx, d.dy);
 			if(rc.onTheMap(spot)) {
 				landscaperSpots.add(spot);
 			}
 		}
+		*/
+		
+		landscaperSpots.add(new MapLocation(HQs[0].x + dir.dx, HQs[0].y + 3 * dir.dy));
+		landscaperSpots.add(new MapLocation(HQs[0].x, HQs[0].y + 2 * dir.dy));
+		landscaperSpots.add(new MapLocation(HQs[0].x - dir.dx, HQs[0].y + 3 * dir.dy));
+		landscaperSpots.add(new MapLocation(HQs[0].x - 2 * dir.dx, HQs[0].y + 2 * dir.dy));
+		landscaperSpots.add(new MapLocation(HQs[0].x - 3 * dir.dx, HQs[0].y + 3 * dir.dy));
+		landscaperSpots.add(new MapLocation(HQs[0].x - 3 * dir.dx, HQs[0].y + dir.dy));
+		landscaperSpots.add(new MapLocation(HQs[0].x - 2 * dir.dx, HQs[0].y));
+		landscaperSpots.add(new MapLocation(HQs[0].x - 3 * dir.dx, HQs[0].y - dir.dy));
+		landscaperSpots.add(new MapLocation(HQs[0].x - 2 * dir.dx, HQs[0].y - 2 * dir.dy));
+		landscaperSpots.add(new MapLocation(HQs[0].x - 3 * dir.dx, HQs[0].y - 3 * dir.dy));
+		landscaperSpots.add(new MapLocation(HQs[0].x - dir.dx, HQs[0].y - 3 * dir.dy));
+		landscaperSpots.add(new MapLocation(HQs[0].x, HQs[0].y - 2 * dir.dy));
+		landscaperSpots.add(new MapLocation(HQs[0].x + dir.dx, HQs[0].y - 3 * dir.dy));
+		landscaperSpots.add(new MapLocation(HQs[0].x + 2 * dir.dx, HQs[0].y - 2 * dir.dy));
+		landscaperSpots.add(new MapLocation(HQs[0].x + 3 * dir.dx, HQs[0].y - 3 * dir.dy));
+		landscaperSpots.add(new MapLocation(HQs[0].x + 3 * dir.dx, HQs[0].y - dir.dy));
+		landscaperSpots.add(new MapLocation(HQs[0].x + 2 * dir.dx, HQs[0].y));
+		landscaperSpots.add(new MapLocation(HQs[0].x + 3 * dir.dx, HQs[0].y + dir.dy));;
+		landscaperSpots.add(new MapLocation(HQs[0].x + 3 * dir.dx, HQs[0].y + 4 * dir.dy));;
+		landscaperSpots.add(new MapLocation(HQs[0].x + 4 * dir.dx, HQs[0].y + 3 * dir.dy));
 	}
 	
 	//----- Moving -----//

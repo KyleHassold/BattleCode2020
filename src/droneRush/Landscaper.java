@@ -6,13 +6,15 @@ import java.util.List;
 import battlecode.common.*;
 
 public class Landscaper extends Unit {
+	Direction getDirt;
+	Direction[] putDirt;
 
 	public Landscaper(RobotController rc) {
 		super(rc);
 		
-		desSch = findAdjRobot(RobotType.DESIGN_SCHOOL, null);
+		desSch = findAdjRobot(RobotType.DESIGN_SCHOOL, rc.getTeam());
 		if(HQs[0] == null) {
-			fulCent = findAdjRobot(RobotType.FULFILLMENT_CENTER, null);
+			fulCent = findAdjRobot(RobotType.FULFILLMENT_CENTER, rc.getTeam());
 			Direction dir = desSch.directionTo(fulCent).rotateLeft();
 			HQs[0] = new MapLocation(fulCent.x + 2 * dir.dx, fulCent.y + 2 * dir.dy);
 			
@@ -32,6 +34,7 @@ public class Landscaper extends Unit {
 			barricadeOuter();
 		} else {
 			getToSpot();
+			getSpotInfo();
 			barricade();
 		}
 	}
@@ -78,33 +81,69 @@ public class Landscaper extends Unit {
 			// If movement failed
 			if(loc.equals(prevLoc)) {
 				submitTransaction(new int[] {teamCode, loc.x, loc.y, target.x, target.y, -1, 9}, 10, true);
-				while(!landscaperSpots.get(0).equals(rc.getLocation())) {
+				yield();
+				int prevTurn = rc.getRoundNum() - 1;
+				while(rc.getRoundNum() == prevTurn + 1) {
+					prevTurn = rc.getRoundNum() - 1;
 					yield();
 				}
 				loc = rc.getLocation();
+				break;
 			}
 			
 			yield();
 		}
 	}
 	
+	private void getSpotInfo() {
+		int dist = Math.max(Math.abs(loc.x - HQs[0].x), Math.abs(loc.y - HQs[0].y));
+		if(dist == 1) {
+			getDirt = HQs[0].directionTo(loc);
+			putDirt = new Direction[] {Direction.CENTER};
+		} else if(dist == 2) {
+			getDirt = Direction.CENTER;
+			putDirt = new Direction[] {loc.directionTo(HQs[0])};
+		} else if(dist == 3) {
+			getDirt = Direction.CENTER;
+			putDirt = new Direction[] {HQs[0].directionTo(loc), HQs[0].directionTo(loc).rotateLeft(), HQs[0].directionTo(loc).rotateRight()};
+		} else if(dist == 4) {
+			if(Math.abs(loc.x - HQs[0].x) == Math.abs(loc.y - HQs[0].y)) {
+				getDirt = loc.directionTo(HQs[0]);
+				putDirt = new Direction[] {Direction.CENTER, getDirt.rotateLeft(), getDirt.rotateRight()};
+			} else if(Math.abs(loc.x - HQs[0].x) == 4) {
+				if(Math.abs(loc.y - HQs[0].y) % 2 == 1) {
+					getDirt = Math.abs(loc.x - HQs[0].x) < 0 ? Direction.EAST : Direction.WEST;
+				} else {
+					getDirt = Math.abs(loc.x - HQs[0].x) < 0 ? Direction.SOUTHEAST : Direction.SOUTHWEST;
+				}
+				putDirt = new Direction[] {Direction.CENTER, Direction.NORTH, Direction.SOUTH};
+			} else {
+				if(Math.abs(loc.x - HQs[0].x) % 2 == 1) {
+					getDirt = Math.abs(loc.y - HQs[0].y) < 0 ? Direction.NORTH : Direction.SOUTH;
+				} else {
+					getDirt = Math.abs(loc.y - HQs[0].y) < 0 ? Direction.NORTHEAST : Direction.SOUTHEAST;
+				}
+				putDirt = new Direction[] {Direction.CENTER, Direction.EAST, Direction.WEST};
+			}
+		} else {
+			System.out.println("Failure: Landscaper.getSpotInfo()\nFailed to get info for: " + dist);
+		}
+	}
+	
 	private void barricade() {
-		Direction placeDirt = Direction.CENTER;
-		Direction mineDir = HQs[0].directionTo(rc.getLocation());
-		
 		// Check that the mining location is valid
-		if(!rc.onTheMap(rc.adjacentLocation(mineDir)) && !isCardinalDir(mineDir)) {
-			mineDir = rc.onTheMap(rc.adjacentLocation(mineDir.rotateRight().rotateRight())) ? mineDir.rotateRight().rotateRight() : mineDir.rotateLeft().rotateLeft();
+		if(!rc.onTheMap(rc.adjacentLocation(getDirt)) && !isCardinalDir(getDirt)) {
+			getDirt = rc.onTheMap(rc.adjacentLocation(getDirt.rotateRight().rotateRight())) ? getDirt.rotateRight().rotateRight() : getDirt.rotateLeft().rotateLeft();
 		}
 		
 		// Forever, mine and place dirt
 		while(true) {
 			// Dig dirt
-			if(rc.canDigDirt(mineDir)) {
+			if(rc.canDigDirt(getDirt)) {
 				try {
-					rc.digDirt(mineDir);
+					rc.digDirt(getDirt);
 				} catch (GameActionException e) {
-					System.out.println("Error: Landscaper.barricade() Failed!\nrc.digDirt(" + mineDir + ") Failed!");
+					System.out.println("Error: Landscaper.barricade() Failed!\nrc.digDirt(" + getDirt + ") Failed!");
 					e.printStackTrace();
 				}
 				
@@ -112,11 +151,23 @@ public class Landscaper extends Unit {
 			}
 			
 			// Place dirt
-			while(rc.canDepositDirt(placeDirt)) {
+			Direction low = putDirt[0];
+			for(Direction dir : putDirt) {
 				try {
-					rc.depositDirt(placeDirt);
+					if(rc.senseElevation(rc.adjacentLocation(dir)) < rc.senseElevation(rc.adjacentLocation(low))) {
+						low = dir;
+					}
 				} catch (GameActionException e) {
-					System.out.println("Error: Landscaper.barricade() Failed!\nrc.depositDirt(" + placeDirt + ") Failed!");
+					System.out.println("Error: Landscaper.barricade() Failed!\nrc.senseElevation(" + dir + " or " + low + ") Failed!");
+					e.printStackTrace();
+				}
+			}
+			
+			while(rc.canDepositDirt(low)) {
+				try {
+					rc.depositDirt(low);
+				} catch (GameActionException e) {
+					System.out.println("Error: Landscaper.barricade() Failed!\nrc.depositDirt(" + low + ") Failed!");
 					e.printStackTrace();
 				}
 				
