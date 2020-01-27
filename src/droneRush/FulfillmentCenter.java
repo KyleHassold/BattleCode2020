@@ -25,13 +25,23 @@ public class FulfillmentCenter extends Building {
 
 	@Override
 	protected void run() {
-		int drones = 0;
-		
 		while(true) {
+			boolean flag = true;
+			for(Direction d : directions) {
+				MapLocation landscaper = HQs[0].translate(d.dx, d.dy);
+				rc.setIndicatorDot(landscaper, 255, 0, 0);
+				try {
+					if((rc.canSenseLocation(landscaper) && !(rc.senseRobotAtLocation(landscaper) != null && rc.senseRobotAtLocation(landscaper).type == RobotType.LANDSCAPER))) {
+						flag = false;
+						break;
+					}
+				} catch (GameActionException e) {
+					e.printStackTrace();
+				}
+			}
 			try {
-				if(vaporator != null && rc.canBuildRobot(RobotType.DELIVERY_DRONE, dir.rotateLeft()) && rc.getTeamSoup() > RobotType.DELIVERY_DRONE.cost + 10) {
+				if(flag && rc.canBuildRobot(RobotType.DELIVERY_DRONE, dir.rotateLeft()) && rc.getTeamSoup() > RobotType.DELIVERY_DRONE.cost + 10) {
 					rc.buildRobot(RobotType.DELIVERY_DRONE, dir.rotateLeft());
-					drones++;
 				}
 			} catch(GameActionException e) {
 				System.out.println("Error: FulfillmentCenter.run() Failed!\nrc.buildRobot(Delivery Drone, " + dir.rotateLeft() + ") Failed!");
