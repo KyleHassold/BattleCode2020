@@ -1,41 +1,44 @@
 package droneRush;
 
-import java.util.Collections;
-
 import battlecode.common.*;
 
 public class HQ extends Building {
 	int miners = 0;
+	boolean doneSensing;
+	Direction dir;
 
 	public HQ(RobotController rc) {
 		super(rc);
 		HQs[0] = loc;
+		dir = loc.directionTo(center);
 	}
 
 	@Override
-	protected void run() throws GameActionException {
-		System.out.println("Start: " + Clock.getBytecodesLeft());
-		MapLocation[] newSoup = rc.senseNearbySoup();
-		System.out.println("end: " + Clock.getBytecodesLeft());
-		Collections.addAll(soup, newSoup);
-		Direction dir = loc.directionTo(center);
+	protected void run() {
+		// Sense for the surrounding soup
+		doneSensing = senseNewSoup(true, false, 5000);
+		
+		// If there is soup sensed, get the best
 		if(!soup.isEmpty()) {
 			dir = loc.directionTo(bestSoup(0));
 		}
+		
+		// Spawn in 6 miners
 		while(miners < 6) {
-			loc = rc.getLocation();
-			try {
-				if(buildRobot(RobotType.MINER, dir)) {
-					miners++;
-				}
-			} catch(GameActionException e) {
-                System.out.println(rc.getType() + " Exception");
-                e.printStackTrace();
+			// Build one if possible
+			if(buildRobot(RobotType.MINER, dir)) {
+				miners++;
 			}
 			
+			// Sense for more soup if there is some left
+			if(!doneSensing) {
+				doneSensing = senseNewSoup(false, false, 5000);
+			}
+
 			yield();
 		}
 		
+		// Become a NetGun after finished spawning in miners
 		Robot netGun = new NetGun(rc);
 		netGun.run();
 	}

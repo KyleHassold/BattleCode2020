@@ -18,21 +18,33 @@ public class FulfillmentCenter extends Building {
 				dir = Direction.SOUTHWEST;
 			}
 		} catch (GameActionException e) {
+			System.out.println("Error: FulfillmentCenter.FulfillmentCenter() Failed!\nrc.senseRobotAtLocation(...) Failed!");
 			e.printStackTrace();
 		}
 	}
 
 	@Override
-	protected void run() throws GameActionException {
-		int drones = 0;
+	protected void run() {
 		while(true) {
+			boolean flag = true;
+			for(Direction d : directions) {
+				MapLocation landscaper = HQs[0].translate(d.dx, d.dy);
+				rc.setIndicatorDot(landscaper, 255, 0, 0);
+				try {
+					if((rc.canSenseLocation(landscaper) && !(rc.senseRobotAtLocation(landscaper) != null && rc.senseRobotAtLocation(landscaper).type == RobotType.LANDSCAPER))) {
+						flag = false;
+						break;
+					}
+				} catch (GameActionException e) {
+					e.printStackTrace();
+				}
+			}
 			try {
-				if(drones < 1 && rc.canBuildRobot(RobotType.DELIVERY_DRONE, dir.rotateLeft())) {
+				if(flag && rc.canBuildRobot(RobotType.DELIVERY_DRONE, dir.rotateLeft()) && rc.getTeamSoup() > RobotType.DELIVERY_DRONE.cost + 10) {
 					rc.buildRobot(RobotType.DELIVERY_DRONE, dir.rotateLeft());
-					drones++;
 				}
 			} catch(GameActionException e) {
-                System.out.println(rc.getType() + " Exception");
+				System.out.println("Error: FulfillmentCenter.run() Failed!\nrc.buildRobot(Delivery Drone, " + dir.rotateLeft() + ") Failed!");
                 e.printStackTrace();
 			}
 			yield();

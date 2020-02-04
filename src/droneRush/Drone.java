@@ -1,171 +1,158 @@
 package droneRush;
 
 import battlecode.common.*;
+import java.util.*;
 
 public class Drone extends Unit {
 	String job;
+	MapLocation water;
 
 	public Drone(RobotController rc) {
-		super(rc);
-		RobotInfo[] robots = rc.senseNearbyRobots(2, rc.getTeam().opponent());
-		boolean nearHq = false;
-		boolean nearDs = false;
-		for(RobotInfo robo : robots) {
-			if(robo.type == RobotType.HQ) {
-				nearHq = true;
-			} else if(robo.type == RobotType.DESIGN_SCHOOL) {
-				nearDs = true;
-			}
-		}
-		if(nearHq && nearDs) {
-			job = "Scout";
-		} else if(nearHq) {
-			job = "Defense";
-		} else if(nearDs) {
-			job = "Attacker";
-		} else if(nearDs) {
-			job = "Mover";
-		} else {
-			job = "Scout";
-		}
-		System.out.println(job);
+		super(rc);	
 	}
 
 	@Override
-	protected void run() throws GameActionException {
-
-		while(true) {
-			try {
-				if(job.equals("Scout")) {
-					runScout();
-				} else if(job.equals("Defense")) {
-					runDefend();
-				} else if(job.equals("Attacker")) {
-					runAttack();
-				} else if(job.equals("Mover")) {
-					runMover();
-				} else {
-					System.out.println("Failed");
-				}
-			} catch(GameActionException e) {
-                System.out.println(rc.getType() + " Exception");
-                e.printStackTrace();
-			}
-		}
+	protected void run() {
+		//readTransactions();
+		if (HQs[1] == null)
+			runScout();
+		runAttack();
 	}
 	
-	private void runScout() throws GameActionException {
-		MapLocation[] targets = new MapLocation[3];
-		targets[0] = new MapLocation(mapW - HQs[0].x - 1, HQs[0].y);
-		targets[1] = new MapLocation(mapW - HQs[0].x - 1, mapH - HQs[0].y - 1);
-		targets[2] = new MapLocation(HQs[0].x, mapH - HQs[0].y - 1);
+	private void runScout() {
+		ArrayList<MapLocation> targets = new ArrayList<MapLocation>();
+		targets.add(new MapLocation(mapW - HQs[0].x - 1, HQs[0].y));
+		targets.add(new MapLocation(mapW - HQs[0].x - 1, mapH - HQs[0].y - 1));
+		targets.add(new MapLocation(HQs[0].x, mapH - HQs[0].y - 1));
+		Collections.shuffle(targets);
 		int count = 0;
-		
-		while(count < targets.length) {
-			if(rc.canSenseLocation(targets[count])) {
-				RobotInfo robo = rc.senseRobotAtLocation(targets[count]);
+			
+		while(count < targets.size() && HQs[1] == null) {
+			// See if the drone can sense the HQ
+			if(rc.canSenseLocation(targets.get(count))) {
+				// Sense the location
+				RobotInfo robo = null;
+				try {
+					robo = rc.senseRobotAtLocation(targets.get(count));
+				} catch (GameActionException e) {
+					System.out.println("Error: Drone.runScout() Failed!\nrc.senseRobotAtLocation(" + targets.get(count) + ") Failed!");
+					e.printStackTrace();
+				}
+				
+				// Check if it the HQ
 				if(robo != null && robo.type == RobotType.HQ && robo.team == rc.getTeam().opponent()) {
-					HQs[1] = targets[count];
-					map.put(targets[count], new int[] {0,0,0,-1});
-					int[] message = new int[] {117291, targets[count].x, targets[count].y, -1, -1, -1, -1};
-					while(!rc.canSubmitTransaction(message, 10)) {
-						yield();
-					}
-					rc.submitTransaction(message, 10);
-					job = "Mover";
-					break;
+					HQs[1] = targets.get(count);
+					map.put(targets.get(count), new int[] {0,0,0,-1});
+					
+					submitTransaction(new int[] {teamCode, targets.get(count).x, targets.get(count).y, -1, -1, -1, 1}, 10, true);
+					return;
 				} else {
-					System.out.println("Next");
+					// Move on to the next potential spot
 					count++;
 				}
 			} else {
-				pathFindTo(targets[count], 80, true, "In Range");
+				// Move to the target
+				pathFindTo(targets.get(count), mapW + mapH, true, "In Range");
 			}
 		}
-	}
-	
-	private void runDefend() throws GameActionException {
-		pathFindTo(HQs[0], 80, false, "In Range");
-		while(true) {
-			yield();
-		}
+		
+		System.out.println("Failure: Drone.runScout()\nFailed to find enemy HQ");
 	}
 	
 	private void runAttack() {
-		
-	}
-	
-	private void runMover() throws GameActionException {
-		while(true) {
-			// Wait for request
-			while(moveReqs.size() == 0) {
-				Direction dir = HQs[0].directionTo(center);
-				pathFindTo(new MapLocation(HQs[0].x + 3 * dir.dx, HQs[0].y + 3 * dir.dy), 2, false, "On");
-				RobotInfo[] robots = rc.senseNearbyRobots(rc.getCurrentSensorRadiusSquared(), rc.getTeam());
-				for(RobotInfo robo : robots) {
-					if(ref != null && robo.location.x <= HQs[0].x + 2 && robo.location.x >= HQs[0].x - 3 && robo.location.y <= HQs[0].y + 2 && robo.location.y >= HQs[0].y - 2) {
-						if(robo.type == RobotType.MINER) {
-							moveReqs.add(0, new MapLocation[] {robo.location, ref.translate(0, 1)});
-						} else if(robo.type == RobotType.COW) {
-							moveReqs.add(0, new MapLocation[] {robo.location, new MapLocation(HQs[0].x + 3 * dir.dx, HQs[0].y + 3 * dir.dy)});
-						}
-					}
-				}
-				yield();
-			}
-			
-			// Move to target robot
-			System.out.println("Moving to target");
-			if(pathFindTo(moveReqs.get(0)[0], 100, false, "Adj") && rc.canSenseLocation(moveReqs.get(0)[0])) {
-				rc.setIndicatorDot(moveReqs.get(0)[0], 120, 120, 120);
-				if(rc.senseRobotAtLocation(moveReqs.get(0)[0]) != null) {
-					int roboId = rc.senseRobotAtLocation(moveReqs.get(0)[0]).ID;
-					while(!rc.canPickUpUnit(roboId)) {
-						yield();
-					}
-					rc.pickUpUnit(roboId);
-					
-					// Move to desired location
-					MapLocation dropOff = moveReqs.get(0)[1] != null ? moveReqs.get(0)[1] : landscaperSpots.remove(0);
-					System.out.println("Moving to drop off: " + dropOff);
-					rc.setIndicatorDot(dropOff, 120, 120, 120);
-					while(moveReqs.get(0)[1] == null && pathFindTo(dropOff, 50, false, "In Range") && rc.canSenseLocation(dropOff) && !loc.equals(dropOff) && rc.senseRobotAtLocation(dropOff) != null) {
-						System.out.println("Yes");
-						if(rc.senseRobotAtLocation(dropOff).type == RobotType.LANDSCAPER) {
-							dropOff = landscaperSpots.remove(0);
-						} else {
-							landscaperSpots.add(dropOff);
-							dropOff = landscaperSpots.remove(0);
-						}
-						rc.setIndicatorDot(dropOff, 120, 120, 120);
-					}
-					if(pathFindTo(dropOff, 50, false, "Adj")) {
-						yield();
-						while(loc.equals(dropOff)) {
-							System.out.println("Need to move");
-							for(Direction dir : Direction.allDirections()) {
-								if(rc.canMove(dir)) {
-									rc.move(dir);
-									yield();
-									loc = rc.getLocation();
-									break;
-								}
-							}
-						}
+		MapLocation target = null;
+		MapLocation water = null;
+		Team opp = rc.getTeam().opponent();
+		int rob_id = -1;
+		boolean carrying = false;
+		Direction heading = null;
 
-						// Drop off
-						System.out.println("Dropping off");
-						while(!rc.canDropUnit(loc.directionTo(dropOff))) {
-							yield();
+		while (true) {
+			try {
+				MapLocation myLoc = rc.getLocation();
+				
+				System.out.println("Water Status: " + water);
+				if (water == null)
+					for (Direction dir : directions)
+						if (rc.canSenseLocation(myLoc.add(dir)) &&  rc.senseFlooding(myLoc.add(dir)))
+							water = myLoc.add(dir);				
+				
+				System.out.println("Target Status: " + target);
+				if (target == null) {
+					RobotInfo[] info = rc.senseNearbyRobots();
+					for (RobotInfo rob : info)
+						if (rob.getTeam() == opp && (rob.getType() == RobotType.MINER || rob.getType() == RobotType.LANDSCAPER)) {
+							target = rob.getLocation();
+							rob_id = rob.getID();
 						}
-						rc.dropUnit(loc.directionTo(dropOff));
+				}
+		
+				if (!rc.isReady()) {
+					yield();
+					continue;
+				}
+	
+				System.out.println("Carrying Status: " + carrying);	
+				if (!carrying && rc.canPickUpUnit(rob_id)) {
+					rc.pickUpUnit(rob_id);
+					carrying = true;
+				}
+
+				if (target != null && myLoc.distanceSquaredTo(target) <= 2) 
+					target = null;
+
+				if (carrying) {
+					for (Direction dir : directions) {
+						MapLocation dest = myLoc.add(dir);
+						System.out.println("Scanning " + dest + (rc.canSenseLocation(dest) ? (rc.senseFlooding(dest) ? " is flooded" : " is not flooded") : "failed.") + " Can drop unit: " + rc.canDropUnit(dir) + " Cooldown Turns: " + rc.getCooldownTurns());
+						if (rc.canSenseLocation(dest) && rc.senseFlooding(dest) 
+							&& rc.canDropUnit(dir)) {
+							rc.dropUnit(dir);
+							target = null;
+							carrying = false;
+						}
 					}
 				}
+
+				if (carrying && water != null) {
+					Direction dir = myLoc.directionTo(water);
+					if (!pathFindTo(myLoc.add(dir).add(dir), 3, false, "Adj"))
+						water = null;
+
+				} else if (!carrying && target != null) {
+					Direction dir = myLoc.directionTo(target);
+					if (!pathFindTo(myLoc.add(dir).add(dir), 3, false, "Adj"))
+						target = null;
+
+				} else {
+					if (heading == null) 
+						heading = randomValidDirection();
+					
+					System.out.println("Heading Status: " + heading);
+					
+					if (!pathFindTo(myLoc.add(heading), 3, false, "On"))
+						heading = null;
+				}
+			} catch (GameActionException e) {
+				System.out.println("Failure: Drone.runAttack()\nFailed to attack miners");
+				e.printStackTrace();
 			}
-			
-			// Task completed
-			System.out.println("Done");
-			moveReqs.remove(0);
 		}
 	}
+	
+	protected Direction randomValidDirection() {
+    	ArrayList<Direction> list = new ArrayList<Direction>();
+        for (Direction dir : directions) 
+			if (rc.canMove(dir)) list.add(dir);  
+		
+ 		if (list.isEmpty()) {
+			System.out.println("Oh no I am stuck"); 
+			return randomDirection();
+		} else
+			return list.get((int) (Math.random() * list.size()));	
+    }
+
+	protected Direction randomDirection() {
+        return directions.get((int) (Math.random() * directions.size()));
+    }
 }

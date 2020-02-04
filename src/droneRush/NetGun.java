@@ -9,23 +9,25 @@ public class NetGun extends Building {
 	}
 
 	@Override
-	protected void run() throws GameActionException {
+	protected void run() {
 		checkTransactions();
 
 		while(true) {
-			try {
-				RobotInfo[] robots = rc.senseNearbyRobots(rc.getCurrentSensorRadiusSquared(), rc.getTeam().opponent());
-				for(RobotInfo robo : robots) {
+			RobotInfo[] robots = rc.senseNearbyRobots(rc.getCurrentSensorRadiusSquared(), rc.getTeam().opponent());
+			
+			for(RobotInfo robo : robots) {
+				try {
 					if(robo.type == RobotType.DELIVERY_DRONE && rc.canShootUnit(robo.ID)) {
 						rc.setIndicatorLine(loc, robo.location, 120, 50, 50);
 						rc.shootUnit(robo.ID);
 						break;
 					}
+				} catch(GameActionException e) {
+					System.out.println("Error: NetGun.run() Failed!\nrc.shootUnit(" + robo.ID + ") Failed!");
+					e.printStackTrace();
 				}
-			} catch(GameActionException e) {
-                System.out.println(rc.getType() + " Exception");
-                e.printStackTrace();
 			}
+			
 			yield();
 		}
 	}

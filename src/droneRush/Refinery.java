@@ -1,9 +1,6 @@
 package droneRush;
 
-import battlecode.common.Clock;
-import battlecode.common.GameActionException;
-import battlecode.common.MapLocation;
-import battlecode.common.RobotController;
+import battlecode.common.*;
 
 public class Refinery extends Building {
 
@@ -12,12 +9,12 @@ public class Refinery extends Building {
 	}
 
 	@Override
-	protected void run() throws GameActionException {
+	protected void run() {
 
 		while(true) {
 			try {
 				rc.isLocationOccupied(loc); // Just to give the catch something
-				Clock.yield();
+				yield();
 			} catch(GameActionException e) {
                 System.out.println(rc.getType() + " Exception");
                 e.printStackTrace();
